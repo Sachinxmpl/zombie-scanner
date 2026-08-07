@@ -1,0 +1,9 @@
+docs
+
+.env
+*.local.yaml
+
+
+.DS_Store
+.idea/
+.vscode/
