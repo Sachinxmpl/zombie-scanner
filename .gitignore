@@ -1,4 +1,4 @@
-docs
+docs/docs.md
 
 .env
 *.local.yaml
@@ -9,3 +9,6 @@ docs
 .vscode/
 
 zombie-scanner
+
+coverage.out
+coverage.html
