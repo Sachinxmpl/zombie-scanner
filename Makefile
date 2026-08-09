@@ -24,11 +24,6 @@ fmt: ## Format the code
 tidy: ## Sync go.mod/go.sum
 	go mod tidy
 
-cover: ## Report test coverage
-	go test -coverprofile=coverage.out $(PKGS)
-	go tool cover -func=coverage.out
-	go tool cover -html=coverage.out -o coverage.html
-
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out coverage.html
 
