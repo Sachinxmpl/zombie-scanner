@@ -17,6 +17,8 @@ type Inventory struct {
 	Instances     []Instance
 	NATGateways   []NATGateway
 	LoadBalancers []LoadBalancer
+
+	Metrics MetricSet
 }
 
 type Volume struct {
