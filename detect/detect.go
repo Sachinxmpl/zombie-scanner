@@ -3,6 +3,7 @@ package detect
 import "github.com/Sachinxmpl/zombie-scanner/zombie"
 
 type Config struct {
+	// how old resource must be before any detector will judge it
 	MinAgeDays int
 
 	SnapshotAgeDays int
@@ -73,7 +74,6 @@ func Run(inv zombie.Inventory, cfg Config, only, skip []string) []zombie.Finding
 
 	return findings
 }
-
 
 func toSet(xs []string) map[string]bool {
 	if len(xs) == 0 {
