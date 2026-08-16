@@ -80,3 +80,7 @@ type LoadBalancer struct {
 	CreatedAt    time.Time
 	Tags         map[string]string
 }
+
+func (inv Inventory) AgeDays(t time.Time) int {
+	return int(inv.Now.Sub(t).Hours() / 24)
+}
