@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Sachinxmpl/zombie-scanner/detect"
+	"github.com/Sachinxmpl/zombie-scanner/price"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
 
@@ -35,16 +36,25 @@ func main() {
 			},
 		},
 	}
+	findings := price.Apply(
+		detect.Run(inv, detect.Defaults(), nil, nil),
+		inv.Region,
+	)
 
-	findings := detect.Run(inv, detect.Defaults(), nil, nil)
+	fmt.Printf("Scanned %s, %d volumes, %d detector(s) registered \n\n", inv.Region, len(inv.Volumes), len(detect.All()))
 
-	fmt.Printf("Scanned %s %d volumes, %d detector(s) registered\n\n",
-		inv.Region, len(inv.Volumes), len(detect.All()))
+	fmt.Printf("%-22s %-12s %-11s %-7s %-8s %s\n",
+		"RESOURCE", "TYPE", "REGION", "CONF", "~$/MO", "REASON")
 
-	fmt.Printf("%-22s %-12s %-11s %-7s %s\n", "RESOURCE", "TYPE", "REGION", "CONF", "REASON")
-
+	total := 0.0
 	for _, f := range findings {
-		fmt.Printf("%-22s %-12s %-11s %-7s %s\n", f.ResourceID, f.ResourceType, f.Region, f.Confidence, f.Reason)
+		total += f.MonthlyCost
+		fmt.Printf("%-22s %-12s %-11s %-7s $%-7.2f %s\n",
+			f.ResourceID, f.ResourceType, f.Region, f.Confidence, f.MonthlyCost, f.Reason)
+		fmt.Printf("%-62s %s\n", "", f.CostBasis)
 	}
-	fmt.Printf("\n%d zombie(s) found\n", len(findings))
+
+	fmt.Printf("\n%d zombie(s) found, estimated zombie spend ~$%.2f/month. Figures are estimates (rates updated %s)\n",
+		len(findings), total, price.Updated())
+
 }

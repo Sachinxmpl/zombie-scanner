@@ -1,0 +1,34 @@
+{
+  "_updated": "2026-08-16",
+  "_source": "AWS Public list prices, us-east-1: https://aws.amazon.com/ebs/pricing",
+  "_notes": "Estimates. Real accounts pay less unser EDPs, savings plans and private pricing",
+  "ebs_per_gib_month": {
+    "gp3": 0.08,
+    "gp2": 0.1,
+    "io1": 0.125,
+    "io2": 0.125,
+    "st1": 0.045,
+    "sc1": 0.015,
+    "standard": 0.05
+  },
+  "snapshot_per_gib_month": 0.05,
+  "elastic_ip_month": 3.65,
+  "nat_gateway_month": 32.85,
+  "alb_month": 16.43,
+  "region_multipliers": {
+    "us-east-1": 1.0,
+    "us-east-2": 1.0,
+    "us-west-1": 1.08,
+    "us-west-2": 1.0,
+    "eu-west-1": 1.06,
+    "eu-west-2": 1.11,
+    "eu-central-1": 1.19,
+    "ap-south-1": 1.08,
+    "ap-southeast-1": 1.1,
+    "ap-southeast-2": 1.15,
+    "ap-northeast-1": 1.2,
+    "sa-east-1": 1.5,
+    "ca-central-1": 1.05
+  },
+  "default_region_multiplier": 1.1
+}
