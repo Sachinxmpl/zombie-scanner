@@ -21,31 +21,28 @@ type STSAPI interface {
 	GetCallerIdentity(ctx context.Context, in *sts.GetCallerIdentityInput, opts ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 }
 
-
 // Compile time proof that real SDK clients satisfy these interfaces
-// SDK upgrades -> methods changed -> build breaks here 
+// SDK upgrades -> methods changed -> build breaks here
 var (
 	_ EC2API = (*ec2.Client)(nil)
 	_ STSAPI = (*sts.Client)(nil)
 )
 
 // one regions's worth of AWS clients
-type Clients struct{
+type Clients struct {
 	EC2 EC2API
 	// ELB, S3
 }
 
-
-type Factory interface{
-	// returns clients bound to one region 
-	For(ctx context.Context, region string)(Clients, error)
+type Factory interface {
+	// returns clients bound to one region
+	For(ctx context.Context, region string) (Clients, error)
 
 	// sts.GetCallerIdentity cached
-	AccountID(ctx context.Context)(string , error)
-	
-	// ec2:DescribeREgions, cached -> regions this account has opted into 
-	Regions(ctx context.Context) ([]string , error )
+	AccountID(ctx context.Context) (string, error)
+
+	// ec2:DescribeREgions, cached -> regions this account has opted into
+	Regions(ctx context.Context) ([]string, error)
 
 	BaseRegion() string
 }
-
