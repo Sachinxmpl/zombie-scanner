@@ -8,7 +8,7 @@ type Config struct {
 
 	SnapshotAgeDays int
 	StoppedDays     int
-	IdelWindowDays  int
+	IdleWindowDays  int
 
 	NATIdleBytes    float64
 	ELBIdleRequests float64
@@ -26,7 +26,7 @@ func Defaults() Config {
 		MinAgeDays:      1,
 		SnapshotAgeDays: 90,
 		StoppedDays:     30,
-		IdelWindowDays:  14,
+		IdleWindowDays:  14,
 		NATIdleBytes:    1 << 20, // 1MiB
 		ELBIdleRequests: 1,
 	}
