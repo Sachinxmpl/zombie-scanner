@@ -1,22 +1,53 @@
+// Command zombie-scanner finds AWS resources that are dead but still billing.
+// It is strictly read-only: no code path in this program creates, modifies, or
+// deletes any AWS resource.
 package main
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/Sachinxmpl/zombie-scanner/awsapi"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
 	"github.com/Sachinxmpl/zombie-scanner/price"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
 
 func main() {
-	// Sample inventory (actual implementation later)
+	ctx := context.Background()
 
-	now := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+	aws, err := awsapi.New(ctx, awsapi.Options{})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	// GetCallerIdentity needs no IAM permission
+	// so a failure here means no credentials — every other call would fail too.
+	account, err := aws.AccountID(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	// Informational only
+	regions, err := aws.Regions(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "warning:", err)
+	}
+
+	fmt.Printf("Connected to AWS\n")
+	fmt.Printf("  account         %s\n", account)
+	fmt.Printf("  default region  %s\n", aws.BaseRegion())
+	fmt.Printf("  regions enabled %d\n\n", len(regions))
+
+	now := time.Now().UTC()
 
 	inv := zombie.Inventory{
-		Region:    "us-east-1",
-		AccountID: "123456789012",
+		Region:    aws.BaseRegion(),
+		AccountID: account,
 		Now:       now,
 		Volumes: []zombie.Volume{
 			{
@@ -36,12 +67,14 @@ func main() {
 			},
 		},
 	}
+
 	findings := price.Apply(
 		detect.Run(inv, detect.Defaults(), nil, nil),
 		inv.Region,
 	)
 
-	fmt.Printf("Scanned %s, %d volumes, %d detector(s) registered \n\n", inv.Region, len(inv.Volumes), len(detect.All()))
+	fmt.Printf("Scanned %s, %d volumes, %d detector(s) registered\n\n",
+		inv.Region, len(inv.Volumes), len(detect.All()))
 
 	fmt.Printf("%-22s %-12s %-11s %-7s %-8s %s\n",
 		"RESOURCE", "TYPE", "REGION", "CONF", "~$/MO", "REASON")
@@ -51,10 +84,9 @@ func main() {
 		total += f.MonthlyCost
 		fmt.Printf("%-22s %-12s %-11s %-7s $%-7.2f %s\n",
 			f.ResourceID, f.ResourceType, f.Region, f.Confidence, f.MonthlyCost, f.Reason)
-		fmt.Printf("%-62s %s\n", "", f.CostBasis)
+		fmt.Printf("%-64s %s\n", "", f.CostBasis)
 	}
 
 	fmt.Printf("\n%d zombie(s) found, estimated zombie spend ~$%.2f/month. Figures are estimates (rates updated %s)\n",
 		len(findings), total, price.Updated())
-
 }
