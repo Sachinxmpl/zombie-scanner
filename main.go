@@ -7,13 +7,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
-	"github.com/Sachinxmpl/zombie-scanner/collect"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
 	"github.com/Sachinxmpl/zombie-scanner/price"
-	"github.com/Sachinxmpl/zombie-scanner/zombie"
+	"github.com/Sachinxmpl/zombie-scanner/scan"
 )
 
 func main() {
@@ -25,74 +23,42 @@ func main() {
 		os.Exit(1)
 	}
 
-	// GetCallerIdentity needs no IAM permission
-	// so a failure here means no credentials — every other call would fail too.
-	account, err := aws.AccountID(ctx)
+	eng := &scan.Engine{
+		AWS: aws,
+		Cfg: detect.Defaults(),
+	}
+
+	report, err := eng.Run(ctx, scan.Options{})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 
-	// Informational only
-	regions, err := aws.Regions(ctx)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "warning:", err)
-	}
+	fmt.Printf("Account %s, %d region(s), %d detector(s)\n\n",
+		report.AccountID, len(report.Regions), len(detect.All()))
 
-	fmt.Printf("Connected to AWS\n")
-	fmt.Printf("  account         %s\n", account)
-	fmt.Printf("  default region  %s\n", aws.BaseRegion())
-	fmt.Printf("  regions enabled %d\n\n", len(regions))
-
-	region := aws.BaseRegion()
-
-	clients, err := aws.For(ctx, region)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
-
-	inv := zombie.Inventory{
-		Region:    region,
-		AccountID: account,
-		Now:       time.Now().UTC(),
-	}
-
-	if vols, err := collect.Volumes(ctx, clients.EC2); err != nil {
-		fmt.Fprintln(os.Stderr, "warning:", err)
+	if len(report.Findings) == 0 {
+		fmt.Println("No zombies found. Clean account.")
 	} else {
-		inv.Volumes = vols
+		fmt.Printf("%-22s %-12s %-11s %-7s %-8s %s\n",
+			"RESOURCE", "TYPE", "REGION", "CONF", "~$/MO", "REASON")
+		for _, f := range report.Findings {
+			fmt.Printf("%-22s %-12s %-11s %-7s $%-7.2f %s\n",
+				f.ResourceID, f.ResourceType, f.Region, f.Confidence, f.MonthlyCost, f.Reason)
+			fmt.Printf("%-64s %s\n", "", f.CostBasis)
+		}
 	}
 
-	if addrs, err := collect.Addresses(ctx, clients.EC2); err != nil {
-		fmt.Fprintln(os.Stderr, "warning:", err)
-	} else {
-		inv.Addresses = addrs
+	// Partial failures go to stderr so stdout stays pipeable.
+	for _, e := range report.Errors {
+		fmt.Fprintf(os.Stderr, "warning: %s:%s in %s: %s (%s)\n",
+			e.Service, e.Operation, e.Region, e.Message, e.Kind)
 	}
 
-	fmt.Printf("Collected %d volumes and %d addresses in %s\n", len(inv.Volumes), len(inv.Addresses), region)
+	fmt.Printf("\n%d zombie(s), estimated zombie spend ~$%.2f/month. Figures are estimates (rates updated %s)\n",
+		report.Summary.ZombieCount, report.Summary.TotalMonthlyUSD, price.Updated())
 
-	fmt.Printf("%+v\n", inv)
-
-	findings := price.Apply(
-		detect.Run(inv, detect.Defaults(), nil, nil),
-		inv.Region,
-	)
-
-	fmt.Printf("Scanned %s, %d volumes, %d detector(s) registered\n\n",
-		inv.Region, len(inv.Volumes), len(detect.All()))
-
-	fmt.Printf("%-22s %-12s %-11s %-7s %-8s %s\n",
-		"RESOURCE", "TYPE", "REGION", "CONF", "~$/MO", "REASON")
-
-	total := 0.0
-	for _, f := range findings {
-		total += f.MonthlyCost
-		fmt.Printf("%-22s %-12s %-11s %-7s $%-7.2f %s\n",
-			f.ResourceID, f.ResourceType, f.Region, f.Confidence, f.MonthlyCost, f.Reason)
-		fmt.Printf("%-64s %s\n", "", f.CostBasis)
+	if len(report.Errors) > 0 {
+		fmt.Printf("%d check(s) skipped, see warnings above\n", len(report.Errors))
 	}
-
-	fmt.Printf("\n%d zombie(s) found, estimated zombie spend ~$%.2f/month. Figures are estimates (rates updated %s)\n",
-		len(findings), total, price.Updated())
 }
