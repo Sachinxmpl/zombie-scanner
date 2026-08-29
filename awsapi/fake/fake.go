@@ -103,7 +103,6 @@ func (f *Factory) BaseRegion() string {
 	return f.Base
 }
 
-
 // Compile-time proof the fakes still match the real interfaces.
 var (
 	_ awsapi.EC2API  = (*EC2)(nil)
