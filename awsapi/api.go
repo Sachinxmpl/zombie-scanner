@@ -41,7 +41,7 @@ type Factory interface {
 	// sts.GetCallerIdentity cached
 	AccountID(ctx context.Context) (string, error)
 
-	// ec2:DescribeREgions, cached -> regions this account has opted into
+	// ec2:DescribeRegions, cached -> regions this account has opted into
 	Regions(ctx context.Context) ([]string, error)
 
 	BaseRegion() string
