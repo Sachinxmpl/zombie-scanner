@@ -80,6 +80,7 @@ type Pricer func(f *zombie.Finding, r Rates)
 
 var pricers = map[string]Pricer{
 	"ebs-volume": priceEBSVolume,
+	"elastic-ip": priceElasticIP,
 }
 
 // Prices every finding for one region
@@ -118,4 +119,12 @@ func priceEBSVolume(f *zombie.Finding, r Rates) {
 	if !known {
 		f.CostBasis += fmt.Sprintf(" [%q unknown priced as %s]", volType, fallbackVolumeType)
 	}
+}
+
+// Elastic IPs bill a flat hourly rate for existing, so there is nothing to
+// measure - the price is the same for every unassociated address.
+func priceElasticIP(f *zombie.Finding, r Rates) {
+	f.MonthlyCost = r.ElasticIPMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s)",
+		r.ElasticIPMonth, r.RegionMultiplier, r.Region)
 }

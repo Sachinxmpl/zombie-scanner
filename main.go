@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
+	"github.com/Sachinxmpl/zombie-scanner/collect"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
 	"github.com/Sachinxmpl/zombie-scanner/price"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
@@ -43,30 +44,35 @@ func main() {
 	fmt.Printf("  default region  %s\n", aws.BaseRegion())
 	fmt.Printf("  regions enabled %d\n\n", len(regions))
 
-	now := time.Now().UTC()
+	region := aws.BaseRegion()
+
+	clients, err := aws.For(ctx, region)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
 
 	inv := zombie.Inventory{
-		Region:    aws.BaseRegion(),
+		Region:    region,
 		AccountID: account,
-		Now:       now,
-		Volumes: []zombie.Volume{
-			{
-				ID: "vol-0abc123def456789", State: "available",
-				VolumeType: "gp3", SizeGiB: 100,
-				CreatedAt: now.AddDate(0, 0, -45),
-			},
-			{
-				ID: "vol-0deadbeef00000001", State: "in-use",
-				VolumeType: "gp2", SizeGiB: 8,
-				CreatedAt: now.AddDate(0, 0, -200), AttachedTo: "i-0123456789abcdef",
-			},
-			{
-				ID: "vol-0freshdetached002", State: "available",
-				VolumeType: "gp3", SizeGiB: 500,
-				CreatedAt: now.Add(-2 * time.Hour), // too new to judge
-			},
-		},
+		Now:       time.Now().UTC(),
 	}
+
+	if vols, err := collect.Volumes(ctx, clients.EC2); err != nil {
+		fmt.Fprintln(os.Stderr, "warning:", err)
+	} else {
+		inv.Volumes = vols
+	}
+
+	if addrs, err := collect.Addresses(ctx, clients.EC2); err != nil {
+		fmt.Fprintln(os.Stderr, "warning:", err)
+	} else {
+		inv.Addresses = addrs
+	}
+
+	fmt.Printf("Collected %d volumes and %d addresses in %s\n", len(inv.Volumes), len(inv.Addresses), region)
+
+	fmt.Printf("%+v\n", inv)
 
 	findings := price.Apply(
 		detect.Run(inv, detect.Defaults(), nil, nil),
