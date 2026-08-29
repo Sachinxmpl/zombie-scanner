@@ -58,7 +58,7 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 	}
 
 	for _, region := range regions {
-		found, errs := e.region(ctx, region, account, now, o)
+		found, errs := e.scanOneRegion(ctx, region, account, now, o)
 		report.Findings = append(report.Findings, found...)
 		report.Errors = append(report.Errors, errs...)
 	}
@@ -83,16 +83,15 @@ func (e *Engine) resolveRegions(ctx context.Context, o Options) ([]string, error
 	}
 }
 
-// step is onw API call
+// step is one API call
 type step struct {
 	service   string
 	operation string
 	run       func(ctx context.Context, inv *zombie.Inventory) error
 }
 
-// regions scans one region
-// returns errors as data
-func (e *Engine) region(ctx context.Context, region, account string, now time.Time, o Options) ([]zombie.Finding, []zombie.ScanError) {
+// scans one region, returns errors as data
+func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now time.Time, o Options) ([]zombie.Finding, []zombie.ScanError) {
 	errs := []zombie.ScanError{}
 
 	clients, err := e.AWS.For(ctx, region)
@@ -128,7 +127,6 @@ func (e *Engine) region(ctx context.Context, region, account string, now time.Ti
 
 	findings := price.Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)
 	return findings, errs
-
 }
 
 func newScanError(region, service, operation string, err error) zombie.ScanError {
