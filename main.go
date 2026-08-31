@@ -26,11 +26,11 @@ func main() {
 	}
 }
 
-// the single place that decides a process exit status
-//
-//	0  scan completed
-//	1  fatal - no credentials, bad flags, every region failed
-//	2  spend exceeded --fail-if-above (M6.4)
+//  process exit status
+
+// 0  scan completed (zombies may exist)
+// 1  fatal - no credentials, bad flags, every region failed
+// 2  spend exceeded --fail-if-above
 func exitCode(_ error) int {
 	return 1
 }

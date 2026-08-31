@@ -1,16 +1,12 @@
 package cli
 
 import (
-	"fmt"
-	"io"
-
 	"github.com/spf13/cobra"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
-	"github.com/Sachinxmpl/zombie-scanner/price"
+	"github.com/Sachinxmpl/zombie-scanner/render"
 	"github.com/Sachinxmpl/zombie-scanner/scan"
-	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
 
 // explicit alias for the bare invocation
@@ -50,38 +46,16 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
+	report.Findings = render.Sort(report.Findings)
+
 	// report to stdout, diagnostics to stderr, so --json | jq stays clean
-	renderText(cmd.OutOrStdout(), report)
-	renderErrors(cmd.ErrOrStderr(), report)
+	if err := render.Table(cmd.OutOrStdout(), report, render.TableOptions{
+		NoColor: o.NoColor,
+		Verbose: o.Verbose,
+	}); err != nil {
+		return err
+	}
+	render.Errors(cmd.ErrOrStderr(), report)
+
 	return nil
-}
-
-func renderText(w io.Writer, r zombie.Report) {
-	fmt.Fprintf(w, "Account %s, %d region(s)\n\n", r.AccountID, len(r.Regions))
-
-	if len(r.Findings) == 0 {
-		fmt.Fprintln(w, "No zombies found. Clean account.")
-		return
-	}
-
-	fmt.Fprintf(w, "%-22s %-12s %-11s %-7s %-8s %s\n",
-		"RESOURCE", "TYPE", "REGION", "CONF", "~$/MO", "REASON")
-	for _, f := range r.Findings {
-		fmt.Fprintf(w, "%-22s %-12s %-11s %-7s $%-7.2f %s\n",
-			f.ResourceID, f.ResourceType, f.Region, f.Confidence, f.MonthlyCost, f.Reason)
-		fmt.Fprintf(w, "%-64s %s\n", "", f.CostBasis)
-	}
-
-	fmt.Fprintf(w, "\n%d zombie(s), estimated zombie spend ~$%.2f/month. Figures are estimates (rates updated %s)\n",
-		r.Summary.ZombieCount, r.Summary.TotalMonthlyUSD, price.Updated())
-}
-
-func renderErrors(w io.Writer, r zombie.Report) {
-	for _, e := range r.Errors {
-		fmt.Fprintf(w, "warning: %s:%s in %s: %s (%s)\n",
-			e.Service, e.Operation, e.Region, e.Message, e.Kind)
-	}
-	if len(r.Errors) > 0 {
-		fmt.Fprintf(w, "%d check(s) skipped\n", len(r.Errors))
-	}
 }
