@@ -14,11 +14,15 @@ type options struct {
 	Profile string
 	NoColor bool
 	Verbose bool
+	Output  string
+	JSON    bool
+
+	version, commit string
 }
 
 // builds the command tree
 func NewRootCommand(version, commit string) *cobra.Command {
-	var o options
+	o := options{version: version, commit: commit}
 
 	root := &cobra.Command{
 		Use:   "zombie-scanner",
@@ -40,6 +44,8 @@ It never creates, modifies, or deletes anything.`,
 	root.PersistentFlags().StringVar(&o.Profile, "profile", "", "AWS profile to use")
 	root.PersistentFlags().BoolVar(&o.NoColor, "no-color", false, "disable colour output")
 	root.PersistentFlags().BoolVarP(&o.Verbose, "verbose", "v", false, "show how each cost was calculated")
+	root.PersistentFlags().StringVar(&o.Output, "output", "table", "output format: table|json")
+	root.PersistentFlags().BoolVar(&o.JSON, "json", false, "shorthand for --output json")
 
 	root.AddCommand(
 		newScanCommand(&o),
