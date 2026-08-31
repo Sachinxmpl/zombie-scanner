@@ -12,6 +12,8 @@ import (
 type options struct {
 	Region  string
 	Profile string
+	NoColor bool
+	Verbose bool
 }
 
 // builds the command tree
@@ -36,6 +38,8 @@ It never creates, modifies, or deletes anything.`,
 
 	root.PersistentFlags().StringVar(&o.Region, "region", "", "region to scan (default: the region the SDK resolves)")
 	root.PersistentFlags().StringVar(&o.Profile, "profile", "", "AWS profile to use")
+	root.PersistentFlags().BoolVar(&o.NoColor, "no-color", false, "disable colour output")
+	root.PersistentFlags().BoolVarP(&o.Verbose, "verbose", "v", false, "show how each cost was calculated")
 
 	root.AddCommand(
 		newScanCommand(&o),
