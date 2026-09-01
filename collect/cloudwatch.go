@@ -27,7 +27,7 @@ const (
 
 // MetricsSum fetches every query in as few calls as possible
 // A series with no datapoints is left out of result. So, MetricSet.Sum reports it as unknown rather than zero
-func MetricsSum(ctx context.Context, api awsapi.CloudWatchAPI, now time.Time, window time.Duration, queries []Query) (zombie.MetricSet, error) {
+func MetricSums(ctx context.Context, api awsapi.CloudWatchAPI, now time.Time, window time.Duration, queries []Query) (zombie.MetricSet, error) {
 	ms := zombie.NewMetricSet(window)
 	if len(queries) == 0 {
 		return ms, nil

@@ -131,6 +131,26 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.Images = i
 			return err
 		}},
+		{"ec2", "DescribeNatGateways", func(ctx context.Context, inv *zombie.Inventory) error {
+			n, err := collect.NatGateways(ctx, clients.EC2)
+			inv.NATGateways = n
+			return err
+		}},
+		{"cloudwatch", "GetMetricData", func(ctx context.Context, inv *zombie.Inventory) error {
+			queries := make([]collect.Query, 0, len(inv.NATGateways))
+			for _, n := range inv.NATGateways {
+				queries = append(queries, collect.Query{
+					Namespace:  "AWS/NATGateway",
+					Metric:     "BytesOutToDestination",
+					Dimension:  "NatGatewayId",
+					ResourceID: n.ID,
+				})
+			}
+			window := time.Duration(e.Cfg.IdleWindowDays) * 24 * time.Hour
+			ms, err := collect.MetricSums(ctx, clients.CW, inv.Now, window, queries)
+			inv.Metrics = ms
+			return err
+		}},
 	}
 
 	inv.Failed = map[string]bool{}

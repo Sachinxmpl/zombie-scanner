@@ -84,6 +84,7 @@ var pricers = map[string]Pricer{
 	"elastic-ip":   priceElasticIP,
 	"ebs-snapshot": priceSnapshot,
 	"ec2-instance": priceStoppedInstance,
+	"nat-gateway":  priceNATGateway,
 }
 
 // Prices every finding for one region
@@ -182,4 +183,10 @@ func priceStoppedInstance(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = total
 	f.CostBasis = fmt.Sprintf("%s x %.2f (%s), attached volumes only - compute is free",
 		strings.Join(parts, " + "), r.RegionMultiplier, r.Region)
+}
+
+// NAT gateways bill hourly for existing, before any data processing charges
+func priceNATGateway(f *zombie.Finding, r Rates) {
+	f.MonthlyCost = r.NATGatewayMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes data processing", r.NATGatewayMonth, r.RegionMultiplier, r.Region)
 }
