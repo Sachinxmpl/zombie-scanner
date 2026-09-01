@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -36,13 +37,20 @@ var (
 	_ EC2API        = (*ec2.Client)(nil)
 	_ STSAPI        = (*sts.Client)(nil)
 	_ CloudWatchAPI = (*cloudwatch.Client)(nil)
+	_ ELBAPI        = (*elb.Client)(nil)
 )
 
 // one regions's worth of AWS clients
+// Only the ELBv2 operations this tool uses. Classic load balancers use a
+// different API and are out of scope.
+type ELBAPI interface {
+	DescribeLoadBalancers(ctx context.Context, in *elb.DescribeLoadBalancersInput, opts ...func(*elb.Options)) (*elb.DescribeLoadBalancersOutput, error)
+}
+
 type Clients struct {
 	EC2 EC2API
 	CW  CloudWatchAPI
-	// ELB, S3
+	ELB ELBAPI
 }
 
 type Factory interface {

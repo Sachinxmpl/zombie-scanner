@@ -2,10 +2,12 @@
 package collect
 
 import (
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
@@ -120,4 +122,28 @@ func toTags(tags []ec2types.Tag) map[string]string {
 		}
 	}
 	return m
+}
+
+func toLoadBalancer(lb elbtypes.LoadBalancer) zombie.LoadBalancer {
+	arn := aws.ToString(lb.LoadBalancerArn)
+	return zombie.LoadBalancer{
+		ARN:          arn,
+		Name:         aws.ToString(lb.LoadBalancerName),
+		Type:         string(lb.Type),
+		MetricSuffix: metricSuffix(arn),
+		CreatedAt:    aws.ToTime(lb.CreatedTime),
+		// DescribeLoadBalancers returns no tags, DescribeTags is a separate
+		// call - deferred to v0.2 with the ignore rules
+	}
+}
+
+// CloudWatch wants "app/my-alb/50dc6c495c0c9188", not the full ARN. Passing
+// the ARN returns zero datapoints, which looks exactly like "idle".
+func metricSuffix(arn string) string {
+	const marker = ":loadbalancer/"
+	i := strings.Index(arn, marker)
+	if i < 0 {
+		return ""
+	}
+	return arn[i+len(marker):]
 }

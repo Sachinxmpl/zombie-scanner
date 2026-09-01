@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
@@ -121,6 +122,21 @@ func (f *CloudWatch) GetMetricData(ctx context.Context, in *cloudwatch.GetMetric
 	return &cloudwatch.GetMetricDataOutput{}, nil
 }
 
+// ELB is a fake awsapi.ELBAPI.
+type ELB struct {
+	DescribeLoadBalancersFunc func(context.Context, *elb.DescribeLoadBalancersInput) (*elb.DescribeLoadBalancersOutput, error)
+	Calls                     []string
+}
+
+func (f *ELB) DescribeLoadBalancers(ctx context.Context, in *elb.DescribeLoadBalancersInput,
+	_ ...func(*elb.Options)) (*elb.DescribeLoadBalancersOutput, error) {
+	f.Calls = append(f.Calls, "DescribeLoadBalancers")
+	if f.DescribeLoadBalancersFunc != nil {
+		return f.DescribeLoadBalancersFunc(ctx, in)
+	}
+	return &elb.DescribeLoadBalancersOutput{}, nil
+}
+
 // Factory is a fake awsapi.Factory.
 type Factory struct {
 	Clients   awsapi.Clients
@@ -162,5 +178,6 @@ func (f *Factory) BaseRegion() string {
 var (
 	_ awsapi.EC2API  = (*EC2)(nil)
 	_ awsapi.STSAPI  = (*STS)(nil)
+	_ awsapi.ELBAPI  = (*ELB)(nil)
 	_ awsapi.Factory = (*Factory)(nil)
 )

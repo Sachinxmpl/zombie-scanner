@@ -85,6 +85,7 @@ var pricers = map[string]Pricer{
 	"ebs-snapshot": priceSnapshot,
 	"ec2-instance": priceStoppedInstance,
 	"nat-gateway":  priceNATGateway,
+	"alb":          priceALB,
 }
 
 // Prices every finding for one region
@@ -189,4 +190,12 @@ func priceStoppedInstance(f *zombie.Finding, r Rates) {
 func priceNATGateway(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = r.NATGatewayMonth * r.RegionMultiplier
 	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes data processing", r.NATGatewayMonth, r.RegionMultiplier, r.Region)
+}
+
+// ALBs bill hourly plus LCU-hours. For an idle one LCU usage is near zero,
+// so the hourly charge is close to the whole cost.
+func priceALB(f *zombie.Finding, r Rates) {
+	f.MonthlyCost = r.ALBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes LCU",
+		r.ALBMonth, r.RegionMultiplier, r.Region)
 }
