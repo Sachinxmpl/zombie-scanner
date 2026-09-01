@@ -6,7 +6,9 @@ import (
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 // Returns every EBS volume in the region
@@ -77,6 +79,33 @@ func Images(ctx context.Context, api awsapi.EC2API) ([]zombie.Image, error) {
 		}
 		for _, i := range page.Images {
 			out = append(out, toImage(i))
+		}
+	}
+	return out, nil
+}
+
+// Returns stopped instances only. Filtered server-side
+func StoppedInstances(ctx context.Context, api awsapi.EC2API) ([]zombie.Instance, error) {
+	out := []zombie.Instance{}
+
+	p := ec2.NewDescribeInstancesPaginator(api, &ec2.DescribeInstancesInput{
+		Filters: []ec2types.Filter{
+			{
+				Name:   aws.String("instance-state-name"),
+				Values: []string{"stopped"},
+			},
+		},
+	})
+
+	for p.HasMorePages() {
+		page, err := p.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("ec2:DescribeInstances: %w", err)
+		}
+		for _, r := range page.Reservations {
+			for _, i := range r.Instances {
+				out = append(out, toInstance(i))
+			}
 		}
 	}
 	return out, nil

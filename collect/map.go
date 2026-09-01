@@ -77,6 +77,28 @@ func parseImageDate(s string) time.Time {
 	return t
 }
 
+func toInstance(i ec2types.Instance) zombie.Instance {
+	out := zombie.Instance{
+		ID:                    aws.ToString(i.InstanceId),
+		Type:                  string(i.InstanceType),
+		LaunchedAt:            aws.ToTime(i.LaunchTime),
+		StateTransitionReason: aws.ToString(i.StateTransitionReason),
+		Tags:                  toTags(i.Tags),
+	}
+	if i.State != nil {
+		out.State = string(i.State.Name)
+	}
+	for _, bdm := range i.BlockDeviceMappings {
+		if bdm.Ebs == nil {
+			continue
+		}
+		if id := aws.ToString(bdm.Ebs.VolumeId); id != "" {
+			out.VolumeIDs = append(out.VolumeIDs, id)
+		}
+	}
+	return out
+}
+
 func toTags(tags []ec2types.Tag) map[string]string {
 	if len(tags) == 0 {
 		return nil

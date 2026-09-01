@@ -14,6 +14,7 @@ import (
 
 // EC2 is a fake awsapi.EC2API.
 type EC2 struct {
+	DescribeInstancesFunc func(context.Context, *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
 	DescribeVolumesFunc   func(context.Context, *ec2.DescribeVolumesInput) (*ec2.DescribeVolumesOutput, error)
 	DescribeAddressesFunc func(context.Context, *ec2.DescribeAddressesInput) (*ec2.DescribeAddressesOutput, error)
 	DescribeRegionsFunc   func(context.Context, *ec2.DescribeRegionsInput) (*ec2.DescribeRegionsOutput, error)
@@ -23,6 +24,15 @@ type EC2 struct {
 	// Calls records operation names in order, so a test can assert that
 	// pagination really made three calls rather than reading one page.
 	Calls []string
+}
+
+func (f *EC2) DescribeInstances(ctx context.Context, in *ec2.DescribeInstancesInput,
+	_ ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
+	f.Calls = append(f.Calls, "DescribeInstances")
+	if f.DescribeInstancesFunc != nil {
+		return f.DescribeInstancesFunc(ctx, in)
+	}
+	return &ec2.DescribeInstancesOutput{}, nil
 }
 
 func (f *EC2) DescribeVolumes(ctx context.Context, in *ec2.DescribeVolumesInput,
