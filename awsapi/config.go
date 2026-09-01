@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
@@ -73,7 +74,10 @@ func (f *factory) For(_ context.Context, region string) (Clients, error) {
 	cfg := f.base.Copy()
 	cfg.Region = region
 
-	c := Clients{EC2: ec2.NewFromConfig(cfg)}
+	c := Clients{
+		EC2: ec2.NewFromConfig(cfg),
+		CW:  cloudwatch.NewFromConfig(cfg),
+	}
 	f.clients[region] = c
 	return c, nil
 }

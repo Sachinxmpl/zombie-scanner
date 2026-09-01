@@ -6,6 +6,7 @@ package fake
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
@@ -14,12 +15,13 @@ import (
 
 // EC2 is a fake awsapi.EC2API.
 type EC2 struct {
-	DescribeInstancesFunc func(context.Context, *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
-	DescribeVolumesFunc   func(context.Context, *ec2.DescribeVolumesInput) (*ec2.DescribeVolumesOutput, error)
-	DescribeAddressesFunc func(context.Context, *ec2.DescribeAddressesInput) (*ec2.DescribeAddressesOutput, error)
-	DescribeRegionsFunc   func(context.Context, *ec2.DescribeRegionsInput) (*ec2.DescribeRegionsOutput, error)
-	DescribeSnapshotsFunc func(context.Context, *ec2.DescribeSnapshotsInput) (*ec2.DescribeSnapshotsOutput, error)
-	DescribeImagesFunc    func(context.Context, *ec2.DescribeImagesInput) (*ec2.DescribeImagesOutput, error)
+	DescribeInstancesFunc   func(context.Context, *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
+	DescribeVolumesFunc     func(context.Context, *ec2.DescribeVolumesInput) (*ec2.DescribeVolumesOutput, error)
+	DescribeAddressesFunc   func(context.Context, *ec2.DescribeAddressesInput) (*ec2.DescribeAddressesOutput, error)
+	DescribeRegionsFunc     func(context.Context, *ec2.DescribeRegionsInput) (*ec2.DescribeRegionsOutput, error)
+	DescribeSnapshotsFunc   func(context.Context, *ec2.DescribeSnapshotsInput) (*ec2.DescribeSnapshotsOutput, error)
+	DescribeImagesFunc      func(context.Context, *ec2.DescribeImagesInput) (*ec2.DescribeImagesOutput, error)
+	DescribeNatGatewaysFunc func(context.Context, *ec2.DescribeNatGatewaysInput) (*ec2.DescribeNatGatewaysOutput, error)
 
 	// Calls records operation names in order, so a test can assert that
 	// pagination really made three calls rather than reading one page.
@@ -80,6 +82,15 @@ func (f *EC2) DescribeImages(ctx context.Context, in *ec2.DescribeImagesInput,
 	return &ec2.DescribeImagesOutput{}, nil
 }
 
+func (f *EC2) DescribeNatGateways(ctx context.Context, in *ec2.DescribeNatGatewaysInput,
+	_ ...func(*ec2.Options)) (*ec2.DescribeNatGatewaysOutput, error) {
+	f.Calls = append(f.Calls, "DescribeNatGateways")
+	if f.DescribeNatGatewaysFunc != nil {
+		return f.DescribeNatGatewaysFunc(ctx, in)
+	}
+	return &ec2.DescribeNatGatewaysOutput{}, nil
+}
+
 // STS is a fake awsapi.STSAPI.
 type STS struct {
 	GetCallerIdentityFunc func(context.Context, *sts.GetCallerIdentityInput) (*sts.GetCallerIdentityOutput, error)
@@ -94,6 +105,20 @@ func (f *STS) GetCallerIdentity(ctx context.Context, in *sts.GetCallerIdentityIn
 	}
 	account := "123456789012"
 	return &sts.GetCallerIdentityOutput{Account: &account}, nil
+}
+
+type CloudWatch struct {
+	GetMetricDataFunc func(context.Context, *cloudwatch.GetMetricDataInput) (*cloudwatch.GetMetricDataOutput, error)
+	Calls             []string
+}
+
+func (f *CloudWatch) GetMetricData(ctx context.Context, in *cloudwatch.GetMetricDataInput,
+	_ ...func(*cloudwatch.Options)) (*cloudwatch.GetMetricDataOutput, error) {
+	f.Calls = append(f.Calls, "GetMetricData")
+	if f.GetMetricDataFunc != nil {
+		return f.GetMetricDataFunc(ctx, in)
+	}
+	return &cloudwatch.GetMetricDataOutput{}, nil
 }
 
 // Factory is a fake awsapi.Factory.

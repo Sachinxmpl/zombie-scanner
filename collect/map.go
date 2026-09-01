@@ -99,6 +99,16 @@ func toInstance(i ec2types.Instance) zombie.Instance {
 	return out
 }
 
+func toNATGateway(n ec2types.NatGateway) zombie.NATGateway {
+	return zombie.NATGateway{
+		ID:        aws.ToString(n.NatGatewayId),
+		VPCID:     aws.ToString(n.VpcId),
+		State:     string(n.State),
+		CreatedAt: aws.ToTime(n.CreateTime),
+		Tags:      toTags(n.Tags),
+	}
+}
+
 func toTags(tags []ec2types.Tag) map[string]string {
 	if len(tags) == 0 {
 		return nil

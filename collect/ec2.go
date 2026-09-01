@@ -110,3 +110,21 @@ func StoppedInstances(ctx context.Context, api awsapi.EC2API) ([]zombie.Instance
 	}
 	return out, nil
 }
+
+
+// Returns every NAT gateway in the region.
+func NatGateways(ctx context.Context, api awsapi.EC2API) ([]zombie.NATGateway, error) {
+	out := []zombie.NATGateway{}
+	p := ec2.NewDescribeNatGatewaysPaginator(api, &ec2.DescribeNatGatewaysInput{})
+	
+	for p.HasMorePages() {
+		page, err := p.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("ec2:DescribeNatGateways: %w", err)
+		}
+		for _, n := range page.NatGateways {
+			out = append(out, toNATGateway(n))
+		}
+	}
+	return out, nil
+}
