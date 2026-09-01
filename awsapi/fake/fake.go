@@ -17,6 +17,8 @@ type EC2 struct {
 	DescribeVolumesFunc   func(context.Context, *ec2.DescribeVolumesInput) (*ec2.DescribeVolumesOutput, error)
 	DescribeAddressesFunc func(context.Context, *ec2.DescribeAddressesInput) (*ec2.DescribeAddressesOutput, error)
 	DescribeRegionsFunc   func(context.Context, *ec2.DescribeRegionsInput) (*ec2.DescribeRegionsOutput, error)
+	DescribeSnapshotsFunc func(context.Context, *ec2.DescribeSnapshotsInput) (*ec2.DescribeSnapshotsOutput, error)
+	DescribeImagesFunc    func(context.Context, *ec2.DescribeImagesInput) (*ec2.DescribeImagesOutput, error)
 
 	// Calls records operation names in order, so a test can assert that
 	// pagination really made three calls rather than reading one page.
@@ -48,6 +50,24 @@ func (f *EC2) DescribeRegions(ctx context.Context, in *ec2.DescribeRegionsInput,
 		return f.DescribeRegionsFunc(ctx, in)
 	}
 	return &ec2.DescribeRegionsOutput{}, nil
+}
+
+func (f *EC2) DescribeSnapshots(ctx context.Context, in *ec2.DescribeSnapshotsInput,
+	_ ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
+	f.Calls = append(f.Calls, "DescribeSnapshots")
+	if f.DescribeSnapshotsFunc != nil {
+		return f.DescribeSnapshotsFunc(ctx, in)
+	}
+	return &ec2.DescribeSnapshotsOutput{}, nil
+}
+
+func (f *EC2) DescribeImages(ctx context.Context, in *ec2.DescribeImagesInput,
+	_ ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error) {
+	f.Calls = append(f.Calls, "DescribeImages")
+	if f.DescribeImagesFunc != nil {
+		return f.DescribeImagesFunc(ctx, in)
+	}
+	return &ec2.DescribeImagesOutput{}, nil
 }
 
 // STS is a fake awsapi.STSAPI.

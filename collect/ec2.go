@@ -41,3 +41,43 @@ func Addresses(ctx context.Context, api awsapi.EC2API) ([]zombie.Address, error)
 
 	return out, nil
 }
+
+// Returns every EBS snapshot this account owns in the region
+func Snapshots(ctx context.Context, api awsapi.EC2API) ([]zombie.Snapshot, error) {
+	out := []zombie.Snapshot{}
+
+	p := ec2.NewDescribeSnapshotsPaginator(api, &ec2.DescribeSnapshotsInput{
+		OwnerIds: []string{"self"},
+	})
+
+	for p.HasMorePages() {
+		page, err := p.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("ec2:DescribeSnapshots: %w", err)
+		}
+		for _, s := range page.Snapshots {
+			out = append(out, toSnapshot(s))
+		}
+	}
+	return out, nil
+}
+
+// Returns every AMI this account owns
+func Images(ctx context.Context, api awsapi.EC2API) ([]zombie.Image, error) {
+	out := []zombie.Image{}
+
+	p := ec2.NewDescribeImagesPaginator(api, &ec2.DescribeImagesInput{
+		Owners: []string{"self"},
+	})
+
+	for p.HasMorePages() {
+		page, err := p.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("ec2:DescribeImages: %w", err)
+		}
+		for _, i := range page.Images {
+			out = append(out, toImage(i))
+		}
+	}
+	return out, nil
+}

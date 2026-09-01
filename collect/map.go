@@ -2,6 +2,8 @@
 package collect
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
@@ -36,6 +38,43 @@ func toAddress(a ec2types.Address) zombie.Address {
 		AssociationID: aws.ToString(a.AssociationId),
 		Tags:          toTags(a.Tags),
 	}
+}
+
+func toSnapshot(s ec2types.Snapshot) zombie.Snapshot {
+	return zombie.Snapshot{
+		ID:          aws.ToString(s.SnapshotId),
+		VolumeID:    aws.ToString(s.VolumeId),
+		SizeGiB:     aws.ToInt32(s.VolumeSize),
+		StartedAt:   aws.ToTime(s.StartTime),
+		Description: aws.ToString(s.Description),
+		Tags:        toTags(s.Tags),
+	}
+}
+
+func toImage(i ec2types.Image) zombie.Image {
+	out := zombie.Image{
+		ID:        aws.ToString(i.ImageId),
+		Name:      aws.ToString(i.Name),
+		CreatedAt: parseImageDate(aws.ToString(i.CreationDate)),
+	}
+
+	for _, bdm := range i.BlockDeviceMappings {
+		if bdm.Ebs == nil {
+			continue
+		}
+		if id := aws.ToString(bdm.Ebs.SnapshotId); id != "" {
+			out.SnapshotIDs = append(out.SnapshotIDs, id)
+		}
+	}
+	return out
+}
+
+func parseImageDate(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 func toTags(tags []ec2types.Tag) map[string]string {
