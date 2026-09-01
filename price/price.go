@@ -79,8 +79,9 @@ func For(region string) Rates {
 type Pricer func(f *zombie.Finding, r Rates)
 
 var pricers = map[string]Pricer{
-	"ebs-volume": priceEBSVolume,
-	"elastic-ip": priceElasticIP,
+	"ebs-volume":   priceEBSVolume,
+	"elastic-ip":   priceElasticIP,
+	"ebs-snapshot": priceSnapshot,
 }
 
 // Prices every finding for one region
@@ -127,4 +128,19 @@ func priceElasticIP(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = r.ElasticIPMonth * r.RegionMultiplier
 	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s)",
 		r.ElasticIPMonth, r.RegionMultiplier, r.Region)
+}
+
+// Snapshots bill incrementally
+// Full size * rate over-estimates, -> precision lack mentioned
+func priceSnapshot(f *zombie.Finding, r Rates) {
+	sizeGiB, err := strconv.Atoi(f.Metadata["size_gib"])
+	if err != nil || sizeGiB <= 0 {
+		f.CostBasis = "unknown snapshot size not priced"
+		return
+	}
+
+	f.MonthlyCost = float64(sizeGiB) * r.SnapshotPerGiBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("%d GiB * $%.3f/GiB-mo %.2f (%s) [upper bound: snapshots bill incrementally]",
+		sizeGiB, r.SnapshotPerGiBMonth, r.RegionMultiplier, r.Region)
+	f.Meta("price_upper_bound", "true")
 }

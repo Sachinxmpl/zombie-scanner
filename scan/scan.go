@@ -116,10 +116,23 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.Addresses = a
 			return err
 		}},
+		{"ec2", "DescribeSnapshots", func(ctx context.Context, inv *zombie.Inventory) error {
+			s, err := collect.Snapshots(ctx, clients.EC2)
+			inv.Snapshots = s
+			return err
+		}},
+		{"ec2", "DescribeImages", func(ctx context.Context, inv *zombie.Inventory) error {
+			i, err := collect.Images(ctx, clients.EC2)
+			inv.Images = i
+			return err
+		}},
 	}
+
+	inv.Failed = map[string]bool{}
 
 	for _, s := range steps {
 		if err := s.run(ctx, &inv); err != nil {
+			inv.Failed[s.service+":"+s.operation] = true
 			errs = append(errs, newScanError(region, s.service, s.operation, err))
 			continue // degrade, never abort
 		}
