@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
@@ -79,8 +80,12 @@ func For(region string) Rates {
 type Pricer func(f *zombie.Finding, r Rates)
 
 var pricers = map[string]Pricer{
-	"ebs-volume": priceEBSVolume,
-	"elastic-ip": priceElasticIP,
+	"ebs-volume":   priceEBSVolume,
+	"elastic-ip":   priceElasticIP,
+	"ebs-snapshot": priceSnapshot,
+	"ec2-instance": priceStoppedInstance,
+	"nat-gateway":  priceNATGateway,
+	"alb":          priceALB,
 }
 
 // Prices every finding for one region
@@ -127,4 +132,70 @@ func priceElasticIP(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = r.ElasticIPMonth * r.RegionMultiplier
 	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s)",
 		r.ElasticIPMonth, r.RegionMultiplier, r.Region)
+}
+
+// Snapshots bill incrementally
+// Full size * rate over-estimates, -> precision lack mentioned
+func priceSnapshot(f *zombie.Finding, r Rates) {
+	sizeGiB, err := strconv.Atoi(f.Metadata["size_gib"])
+	if err != nil || sizeGiB <= 0 {
+		f.CostBasis = "unknown snapshot size not priced"
+		return
+	}
+
+	f.MonthlyCost = float64(sizeGiB) * r.SnapshotPerGiBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("%d GiB * $%.3f/GiB-mo %.2f (%s) [upper bound: snapshots bill incrementally]",
+		sizeGiB, r.SnapshotPerGiBMonth, r.RegionMultiplier, r.Region)
+	f.Meta("price_upper_bound", "true")
+}
+
+// A stopped instance's compute is free, the cost is its attached volumes.
+func priceStoppedInstance(f *zombie.Finding, r Rates) {
+	rawSizes := f.Metadata["volume_sizes_gib"]
+	rawTypes := f.Metadata["volume_types"]
+	if rawSizes == "" || rawTypes == "" {
+		f.CostBasis = "unknown volume sizes not priced"
+		return
+	}
+
+	sizes := strings.Split(rawSizes, ",")
+	types := strings.Split(rawTypes, ",")
+	if len(sizes) != len(types) {
+		f.CostBasis = "mismatched volume metadata not priced"
+		return
+	}
+
+	var total float64
+	parts := make([]string, 0, len(sizes))
+	for i := range sizes {
+		gib, err := strconv.Atoi(sizes[i])
+		if err != nil || gib <= 0 {
+			continue
+		}
+		rate, known := r.EBSPerGiBMonth[types[i]]
+		if !known {
+			rate = r.EBSPerGiBMonth[fallbackVolumeType]
+			f.Meta("price_fallback", "true")
+		}
+		total += float64(gib) * rate * r.RegionMultiplier
+		parts = append(parts, fmt.Sprintf("%d GiB %s", gib, types[i]))
+	}
+
+	f.MonthlyCost = total
+	f.CostBasis = fmt.Sprintf("%s x %.2f (%s), attached volumes only - compute is free",
+		strings.Join(parts, " + "), r.RegionMultiplier, r.Region)
+}
+
+// NAT gateways bill hourly for existing, before any data processing charges
+func priceNATGateway(f *zombie.Finding, r Rates) {
+	f.MonthlyCost = r.NATGatewayMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes data processing", r.NATGatewayMonth, r.RegionMultiplier, r.Region)
+}
+
+// ALBs bill hourly plus LCU-hours. For an idle one LCU usage is near zero,
+// so the hourly charge is close to the whole cost.
+func priceALB(f *zombie.Finding, r Rates) {
+	f.MonthlyCost = r.ALBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes LCU",
+		r.ALBMonth, r.RegionMultiplier, r.Region)
 }

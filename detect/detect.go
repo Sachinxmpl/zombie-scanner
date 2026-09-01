@@ -24,8 +24,8 @@ type Detector interface {
 func Defaults() Config {
 	return Config{
 		MinAgeDays:      0,
-		SnapshotAgeDays: 90,
-		StoppedDays:     30,
+		SnapshotAgeDays: 0,
+		StoppedDays:     0,
 		IdleWindowDays:  14,
 		NATIdleBytes:    1 << 20, // 1MiB
 		ELBIdleRequests: 1,

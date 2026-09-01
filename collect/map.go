@@ -2,8 +2,12 @@
 package collect
 
 import (
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
@@ -38,6 +42,75 @@ func toAddress(a ec2types.Address) zombie.Address {
 	}
 }
 
+func toSnapshot(s ec2types.Snapshot) zombie.Snapshot {
+	return zombie.Snapshot{
+		ID:          aws.ToString(s.SnapshotId),
+		VolumeID:    aws.ToString(s.VolumeId),
+		SizeGiB:     aws.ToInt32(s.VolumeSize),
+		StartedAt:   aws.ToTime(s.StartTime),
+		Description: aws.ToString(s.Description),
+		Tags:        toTags(s.Tags),
+	}
+}
+
+func toImage(i ec2types.Image) zombie.Image {
+	out := zombie.Image{
+		ID:        aws.ToString(i.ImageId),
+		Name:      aws.ToString(i.Name),
+		CreatedAt: parseImageDate(aws.ToString(i.CreationDate)),
+	}
+
+	for _, bdm := range i.BlockDeviceMappings {
+		if bdm.Ebs == nil {
+			continue
+		}
+		if id := aws.ToString(bdm.Ebs.SnapshotId); id != "" {
+			out.SnapshotIDs = append(out.SnapshotIDs, id)
+		}
+	}
+	return out
+}
+
+func parseImageDate(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+func toInstance(i ec2types.Instance) zombie.Instance {
+	out := zombie.Instance{
+		ID:                    aws.ToString(i.InstanceId),
+		Type:                  string(i.InstanceType),
+		LaunchedAt:            aws.ToTime(i.LaunchTime),
+		StateTransitionReason: aws.ToString(i.StateTransitionReason),
+		Tags:                  toTags(i.Tags),
+	}
+	if i.State != nil {
+		out.State = string(i.State.Name)
+	}
+	for _, bdm := range i.BlockDeviceMappings {
+		if bdm.Ebs == nil {
+			continue
+		}
+		if id := aws.ToString(bdm.Ebs.VolumeId); id != "" {
+			out.VolumeIDs = append(out.VolumeIDs, id)
+		}
+	}
+	return out
+}
+
+func toNATGateway(n ec2types.NatGateway) zombie.NATGateway {
+	return zombie.NATGateway{
+		ID:        aws.ToString(n.NatGatewayId),
+		VPCID:     aws.ToString(n.VpcId),
+		State:     string(n.State),
+		CreatedAt: aws.ToTime(n.CreateTime),
+		Tags:      toTags(n.Tags),
+	}
+}
+
 func toTags(tags []ec2types.Tag) map[string]string {
 	if len(tags) == 0 {
 		return nil
@@ -49,4 +122,28 @@ func toTags(tags []ec2types.Tag) map[string]string {
 		}
 	}
 	return m
+}
+
+func toLoadBalancer(lb elbtypes.LoadBalancer) zombie.LoadBalancer {
+	arn := aws.ToString(lb.LoadBalancerArn)
+	return zombie.LoadBalancer{
+		ARN:          arn,
+		Name:         aws.ToString(lb.LoadBalancerName),
+		Type:         string(lb.Type),
+		MetricSuffix: metricSuffix(arn),
+		CreatedAt:    aws.ToTime(lb.CreatedTime),
+		// DescribeLoadBalancers returns no tags, DescribeTags is a separate
+		// call - deferred to v0.2 with the ignore rules
+	}
+}
+
+// CloudWatch wants "app/my-alb/50dc6c495c0c9188", not the full ARN. Passing
+// the ARN returns zero datapoints, which looks exactly like "idle".
+func metricSuffix(arn string) string {
+	const marker = ":loadbalancer/"
+	i := strings.Index(arn, marker)
+	if i < 0 {
+		return ""
+	}
+	return arn[i+len(marker):]
 }

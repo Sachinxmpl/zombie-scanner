@@ -18,6 +18,9 @@ type Inventory struct {
 	NATGateways   []NATGateway
 	LoadBalancers []LoadBalancer
 
+	// operations that didn't complete, "service:Operation"
+	Failed map[string]bool
+
 	Metrics MetricSet
 }
 
@@ -83,4 +86,9 @@ type LoadBalancer struct {
 
 func (inv Inventory) AgeDays(t time.Time) int {
 	return int(inv.Now.Sub(t).Hours() / 24)
+}
+
+// reports whether an operation failed
+func (inv Inventory) Missing(operation string) bool {
+	return inv.Failed[operation]
 }

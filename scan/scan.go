@@ -116,10 +116,67 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.Addresses = a
 			return err
 		}},
+		{"ec2", "DescribeSnapshots", func(ctx context.Context, inv *zombie.Inventory) error {
+			s, err := collect.Snapshots(ctx, clients.EC2)
+			inv.Snapshots = s
+			return err
+		}},
+		{"ec2", "DescribeInstances", func(ctx context.Context, inv *zombie.Inventory) error {
+			i, err := collect.StoppedInstances(ctx, clients.EC2)
+			inv.Instances = i
+			return err
+		}},
+		{"ec2", "DescribeImages", func(ctx context.Context, inv *zombie.Inventory) error {
+			i, err := collect.Images(ctx, clients.EC2)
+			inv.Images = i
+			return err
+		}},
+		{"ec2", "DescribeNatGateways", func(ctx context.Context, inv *zombie.Inventory) error {
+			n, err := collect.NatGateways(ctx, clients.EC2)
+			inv.NATGateways = n
+			return err
+		}},
+		{"elasticloadbalancing", "DescribeLoadBalancers", func(ctx context.Context, inv *zombie.Inventory) error {
+			lbs, err := collect.LoadBalancers(ctx, clients.ELB)
+			inv.LoadBalancers = lbs
+			return err
+		}},
+		// must run after every collector that it builds queries from
+		{"cloudwatch", "GetMetricData", func(ctx context.Context, inv *zombie.Inventory) error {
+			queries := make([]collect.Query, 0, len(inv.NATGateways)+len(inv.LoadBalancers))
+
+			for _, n := range inv.NATGateways {
+				queries = append(queries, collect.Query{
+					Namespace:  "AWS/NATGateway",
+					Metric:     "BytesOutToDestination",
+					Dimension:  "NatGatewayId",
+					ResourceID: n.ID,
+				})
+			}
+			for _, lb := range inv.LoadBalancers {
+				if lb.Type != "application" || lb.MetricSuffix == "" {
+					continue
+				}
+				queries = append(queries, collect.Query{
+					Namespace:  "AWS/ApplicationELB",
+					Metric:     "RequestCount",
+					Dimension:  "LoadBalancer",
+					ResourceID: lb.MetricSuffix, // never lb.ARN
+				})
+			}
+
+			window := time.Duration(e.Cfg.IdleWindowDays) * 24 * time.Hour
+			ms, err := collect.MetricSums(ctx, clients.CW, inv.Now, window, queries)
+			inv.Metrics = ms
+			return err
+		}},
 	}
+
+	inv.Failed = map[string]bool{}
 
 	for _, s := range steps {
 		if err := s.run(ctx, &inv); err != nil {
+			inv.Failed[s.service+":"+s.operation] = true
 			errs = append(errs, newScanError(region, s.service, s.operation, err))
 			continue // degrade, never abort
 		}
