@@ -10,8 +10,8 @@ import (
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
 
-// Returns every ELBv2 load balancer, application and network. 
-// Classic load balancers use a different API. currently our of scope 
+// Returns every ELBv2 load balancer, application and network.
+// Classic load balancers use a different API. currently our of scope
 func LoadBalancers(ctx context.Context, api awsapi.ELBAPI) ([]zombie.LoadBalancer, error) {
 	out := []zombie.LoadBalancer{}
 
