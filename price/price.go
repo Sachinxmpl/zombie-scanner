@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
@@ -82,6 +83,7 @@ var pricers = map[string]Pricer{
 	"ebs-volume":   priceEBSVolume,
 	"elastic-ip":   priceElasticIP,
 	"ebs-snapshot": priceSnapshot,
+	"ec2-instance": priceStoppedInstance,
 }
 
 // Prices every finding for one region
@@ -143,4 +145,41 @@ func priceSnapshot(f *zombie.Finding, r Rates) {
 	f.CostBasis = fmt.Sprintf("%d GiB * $%.3f/GiB-mo %.2f (%s) [upper bound: snapshots bill incrementally]",
 		sizeGiB, r.SnapshotPerGiBMonth, r.RegionMultiplier, r.Region)
 	f.Meta("price_upper_bound", "true")
+}
+
+// A stopped instance's compute is free, the cost is its attached volumes.
+func priceStoppedInstance(f *zombie.Finding, r Rates) {
+	rawSizes := f.Metadata["volume_sizes_gib"]
+	rawTypes := f.Metadata["volume_types"]
+	if rawSizes == "" || rawTypes == "" {
+		f.CostBasis = "unknown volume sizes not priced"
+		return
+	}
+
+	sizes := strings.Split(rawSizes, ",")
+	types := strings.Split(rawTypes, ",")
+	if len(sizes) != len(types) {
+		f.CostBasis = "mismatched volume metadata not priced"
+		return
+	}
+
+	var total float64
+	parts := make([]string, 0, len(sizes))
+	for i := range sizes {
+		gib, err := strconv.Atoi(sizes[i])
+		if err != nil || gib <= 0 {
+			continue
+		}
+		rate, known := r.EBSPerGiBMonth[types[i]]
+		if !known {
+			rate = r.EBSPerGiBMonth[fallbackVolumeType]
+			f.Meta("price_fallback", "true")
+		}
+		total += float64(gib) * rate * r.RegionMultiplier
+		parts = append(parts, fmt.Sprintf("%d GiB %s", gib, types[i]))
+	}
+
+	f.MonthlyCost = total
+	f.CostBasis = fmt.Sprintf("%s x %.2f (%s), attached volumes only - compute is free",
+		strings.Join(parts, " + "), r.RegionMultiplier, r.Region)
 }

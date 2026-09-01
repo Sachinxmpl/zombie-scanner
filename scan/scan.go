@@ -121,6 +121,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.Snapshots = s
 			return err
 		}},
+		{"ec2", "DescribeInstances", func(ctx context.Context, inv *zombie.Inventory) error {
+			i, err := collect.StoppedInstances(ctx, clients.EC2)
+			inv.Instances = i
+			return err
+		}},
 		{"ec2", "DescribeImages", func(ctx context.Context, inv *zombie.Inventory) error {
 			i, err := collect.Images(ctx, clients.EC2)
 			inv.Images = i
