@@ -56,6 +56,11 @@ func runScan(cmd *cobra.Command, o options) error {
 		filters = append(filters, filter.MinConfidence{Level: level})
 	}
 
+	logger, err := newLogger(cmd.ErrOrStderr(), o.LogLevel, o.Verbose)
+	if err != nil {
+		return err
+	}
+
 	cfg := detect.Defaults()
 	cfg.SnapshotAgeDays = o.SnapshotAgeDays
 	cfg.StoppedDays = o.StoppedDays
@@ -68,11 +73,6 @@ func runScan(cmd *cobra.Command, o options) error {
 		Profile: o.Profile,
 		Region:  o.Region,
 	})
-	if err != nil {
-		return err
-	}
-
-	logger, err := newLogger(cmd.ErrOrStderr(), o.LogLevel, o.Verbose)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,14 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
-	render.Errors(cmd.ErrOrStderr(), report)
+	render.Errors(cmd.ErrOrStderr(), report, o.Verbose)
+
+	if o.Strict && len(report.Errors) > 0 {
+		return fmt.Errorf("%d check(s) could not run and --strict is set", len(report.Errors))
+	}
+	if o.FailIfAbove > 0 && report.Summary.TotalMonthlyUSD > o.FailIfAbove {
+		return ErrSpendAboveThreshold
+	}
 
 	return nil
 }

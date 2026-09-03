@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -20,17 +21,25 @@ var (
 func main() {
 	root := cli.NewRootCommand(version, commit)
 
-	if err := root.ExecuteContext(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(exitCode(err))
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		return
 	}
+
+	if !errors.Is(err, cli.ErrSpendAboveThreshold) {
+		fmt.Fprintln(os.Stderr, "error:", err)
+	}
+	os.Exit(exitCode(err))
 }
 
 //  process exit status
 
 // 0  scan completed (zombies may exist)
-// 1  fatal - no credentials, bad flags, every region failed
+// 1  fatal - no credentials, bad flags, --strict with failures
 // 2  Scan succeeded, but spend exceeded --fail-if-above
-func exitCode(_ error) int {
+func exitCode(err error) int {
+	if errors.Is(err, cli.ErrSpendAboveThreshold) {
+		return 2
+	}
 	return 1
 }

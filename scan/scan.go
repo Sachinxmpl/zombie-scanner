@@ -31,6 +31,13 @@ type Options struct {
 	Only, Skip []string
 }
 
+func (e *Engine) log() *slog.Logger {
+	if e.Log != nil {
+		return e.Log
+	}
+	return slog.New(slog.DiscardHandler)
+}
+
 func (e *Engine) now() time.Time {
 	if e.Clock != nil {
 		return e.Clock()
@@ -185,11 +192,14 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 	inv.Failed = map[string]bool{}
 
 	for _, s := range steps {
+		t0 := time.Now()
 		if err := s.run(ctx, &inv); err != nil {
+			e.log().Debug("step failed", "op", s.service+":"+s.operation, "region", region, "err", err)
 			inv.Failed[s.service+":"+s.operation] = true
 			errs = append(errs, newScanError(region, s.service, s.operation, err))
 			continue // degrade, never abort
 		}
+		e.log().Debug("step ok", "op", s.service+":"+s.operation, "took", time.Since(t0))
 	}
 
 	findings := price.Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)

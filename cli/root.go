@@ -77,7 +77,7 @@ It never creates, modifies, or deletes anything.`,
 	pf.IntVar(&o.StoppedDays, "stopped-days", d.StoppedDays, "flag instances stopped longer than this")
 	pf.IntVar(&o.IdleWindowDays, "idle-window-days", d.IdleWindowDays, "metric lookback window in days")
 
-	pf.Float64Var(&o.FailIfAbove, "fail-if-above", 0, "exit 2 when montly zombie spend exceeds this")
+	pf.Float64Var(&o.FailIfAbove, "fail-if-above", 0, "exit 2 when monthly zombie spend exceeds this")
 	pf.BoolVar(&o.Strict, "strict", false, "exit 1 if any detector fails to run")
 	pf.StringVar(&o.LogLevel, "log-level", "info", "log level: debug|info|warn|error")
 

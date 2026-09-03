@@ -100,24 +100,74 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 }
 
 // Errors writes partial failures. stderr only.
-func Errors(w io.Writer, r zombie.Report) {
+// Errors are grouped by kind and action: one missing permission across twenty regions is one line, not twenty.
+func Errors(w io.Writer, r zombie.Report, verbose bool) {
 	if len(r.Errors) == 0 {
 		return
 	}
 
-	denied := 0
-	for _, e := range r.Errors {
-		if e.Kind == zombie.KindAccessDenied {
-			denied++
+	if verbose {
+		for _, e := range r.Errors {
+			fmt.Fprintf(w, "warning: %s:%s in %s: %s (%s)\n",
+				e.Service, e.Operation, e.Region, e.Message, e.Kind)
 		}
-		fmt.Fprintf(w, "warning: %s:%s in %s: %s\n", e.Service, e.Operation, e.Region, e.Message)
 	}
 
-	fmt.Fprintf(w, "%d check(s) skipped", len(r.Errors))
-	if denied > 0 {
-		fmt.Fprintf(w, " - %d denied, run `zombie-scanner detectors` for the actions needed", denied)
+	type group struct {
+		kind    zombie.ErrorKind
+		action  string
+		message string
+		regions []string
 	}
-	fmt.Fprintln(w)
+	groups := map[string]*group{}
+	order := []string{}
+
+	for _, e := range r.Errors {
+		// for AWS, service:Operation is the IAM action name
+		action := e.Service + ":" + e.Operation
+		k := string(e.Kind) + "|" + action
+		g, ok := groups[k]
+		if !ok {
+			g = &group{kind: e.Kind, action: action, message: e.Message}
+			groups[k] = g
+			order = append(order, k)
+		}
+		g.regions = append(g.regions, e.Region)
+	}
+
+	fmt.Fprintf(w, "\n! %d check%s skipped\n", len(r.Errors), plural(len(r.Errors)))
+
+	denied := false
+	for _, k := range order {
+		g := groups[k]
+		switch g.kind {
+		case zombie.KindAccessDenied:
+			denied = true
+			fmt.Fprintf(w, "  missing permission: %s (%s)\n", g.action, regionList(g.regions))
+		case zombie.KindThrottled:
+			fmt.Fprintf(w, "  throttled: %s (%s)\n", g.action, regionList(g.regions))
+		case zombie.KindUnsupported:
+			fmt.Fprintf(w, "  not available in %s: %s\n", regionList(g.regions), g.action)
+		default:
+			fmt.Fprintf(w, "  %s (%s): %s\n", g.action, regionList(g.regions), g.message)
+		}
+	}
+
+	if denied {
+		fmt.Fprintln(w, "  grant the missing actions, or skip those detectors with --skip")
+		fmt.Fprintln(w, "  run `zombie-scanner detectors` to see what each detector needs")
+	}
+	if !verbose {
+		fmt.Fprintln(w, "  run with -v for detail")
+	}
+}
+
+func regionList(regions []string) string {
+	sort.Strings(regions)
+	if len(regions) <= 2 {
+		return strings.Join(regions, ", ")
+	}
+	return fmt.Sprintf("%s, +%d more", strings.Join(regions[:2], ", "), len(regions)-2)
 }
 
 func style(color bool, c string) lipgloss.Style {
