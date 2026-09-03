@@ -155,7 +155,7 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 
 	if denied {
 		fmt.Fprintln(w, "  grant the missing actions, or skip those detectors with --skip")
-		fmt.Fprintln(w, "  run `zombie-scanner detectors` to see what each detector needs")
+		fmt.Fprintln(w, "  run `zombie-scanner iam-policy` for the policy this tool needs")
 	}
 	if !verbose {
 		fmt.Fprintln(w, "  run with -v for detail")

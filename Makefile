@@ -6,7 +6,7 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build test race lint fmt tidy cover clean check
+.PHONY: help build test race lint fmt tidy cover clean check iam-policy
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -31,3 +31,6 @@ clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out coverage.html
 
 check: build race lint
+
+iam-policy: build ## Regenerate docs/iam-policy.json
+	./$(BINARY) iam-policy > docs/iam-policy.json
