@@ -11,7 +11,7 @@ type Filter interface {
 }
 
 // Returns the kept findings, and how many each filter dropped
-func Appply(fs []zombie.Finding, filters []Filter) ([]zombie.Finding, map[string]int) {
+func Apply(fs []zombie.Finding, filters []Filter) ([]zombie.Finding, map[string]int) {
 	if len(filters) == 0 {
 		return fs, nil
 	}
@@ -35,7 +35,6 @@ func Appply(fs []zombie.Finding, filters []Filter) ([]zombie.Finding, map[string
 	return kept, dropped
 }
 
-
 type MinCost struct {
 	USD float64
 }
@@ -53,5 +52,5 @@ func (MinConfidence) Name() string {
 	return "--confidence"
 }
 func (m MinConfidence) Keep(f zombie.Finding) bool {
-	return f.Confidence >= zombie.Confidence(m.Level.Rank())
+	return f.Confidence.Rank() >= m.Level.Rank()
 }

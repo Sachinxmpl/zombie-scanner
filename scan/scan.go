@@ -8,6 +8,7 @@ import (
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
 	"github.com/Sachinxmpl/zombie-scanner/collect"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
+	"github.com/Sachinxmpl/zombie-scanner/filter"
 	"github.com/Sachinxmpl/zombie-scanner/price"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 	"github.com/aws/smithy-go"
@@ -15,8 +16,9 @@ import (
 
 // engine runs a scan
 type Engine struct {
-	AWS awsapi.Factory
-	Cfg detect.Config
+	AWS     awsapi.Factory
+	Cfg     detect.Config
+	Filters []filter.Filter
 
 	Clock func() time.Time
 }
@@ -58,9 +60,15 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 	}
 
 	for _, region := range regions {
-		found, errs := e.scanOneRegion(ctx, region, account, now, o)
+		found, dropped, errs := e.scanOneRegion(ctx, region, account, now, o)
 		report.Findings = append(report.Findings, found...)
 		report.Errors = append(report.Errors, errs...)
+		for name, n := range dropped {
+			if report.Filtered == nil {
+				report.Filtered = map[string]int{}
+			}
+			report.Filtered[name] += n
+		}
 	}
 
 	report.Summary = summarize(report.Findings)
@@ -91,12 +99,12 @@ type step struct {
 }
 
 // scans one region, returns errors as data
-func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now time.Time, o Options) ([]zombie.Finding, []zombie.ScanError) {
+func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now time.Time, o Options) ([]zombie.Finding, map[string]int, []zombie.ScanError) {
 	errs := []zombie.ScanError{}
 
 	clients, err := e.AWS.For(ctx, region)
 	if err != nil {
-		return nil, append(errs, newScanError(region, "aws", "Clients", err))
+		return nil, nil, append(errs, newScanError(region, "aws", "Clients", err))
 	}
 
 	inv := zombie.Inventory{
@@ -183,7 +191,8 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 	}
 
 	findings := price.Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)
-	return findings, errs
+	findings, dropped := filter.Apply(findings, e.Filters)
+	return findings, dropped, errs
 }
 
 func newScanError(region, service, operation string, err error) zombie.ScanError {

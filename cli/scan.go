@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
+	"github.com/Sachinxmpl/zombie-scanner/filter"
 	"github.com/Sachinxmpl/zombie-scanner/render"
 	"github.com/Sachinxmpl/zombie-scanner/scan"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
@@ -37,6 +38,30 @@ func runScan(cmd *cobra.Command, o options) error {
 		return fmt.Errorf("unknown output format %q (want table or json)", format)
 	}
 
+	if err := validateDetectors(o.Only, o.Skip); err != nil {
+		return err
+	}
+
+	filters := []filter.Filter{}
+	if o.MinCost > 0 {
+		filters = append(filters, filter.MinCost{USD: o.MinCost})
+	}
+	if o.Confidence != "" {
+		level, err := zombie.ParseConfidence(o.Confidence)
+		if err != nil {
+			return err
+		}
+		filters = append(filters, filter.MinConfidence{Level: level})
+	}
+
+	cfg := detect.Defaults()
+	cfg.SnapshotAgeDays = o.SnapshotAgeDays
+	cfg.StoppedDays = o.StoppedDays
+	cfg.IdleWindowDays = o.IdleWindowDays
+
+	// nothing above here touches the network, i.e a bad flag never costs a
+	// round trip and never reports itself as a credentials problem
+
 	aws, err := awsapi.New(ctx, awsapi.Options{
 		Profile: o.Profile,
 		Region:  o.Region,
@@ -45,9 +70,9 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
-	eng := &scan.Engine{AWS: aws, Cfg: detect.Defaults()}
+	eng := &scan.Engine{AWS: aws, Cfg: cfg, Filters: filters}
 
-	var opts scan.Options
+	opts := scan.Options{Only: o.Only, Skip: o.Skip, AllRegions: o.AllRegions}
 	if o.Region != "" {
 		opts.Regions = []string{o.Region}
 	}
@@ -76,5 +101,21 @@ func runScan(cmd *cobra.Command, o options) error {
 
 	render.Errors(cmd.ErrOrStderr(), report)
 
+	return nil
+}
+
+// a typo in --only must not silently scan nothing
+func validateDetectors(lists ...[]string) error {
+	known := make(map[string]bool)
+	for _, d := range detect.All() {
+		known[d.Name()] = true
+	}
+	for _, list := range lists {
+		for _, name := range list {
+			if !known[name] {
+				return fmt.Errorf("unknown detector %q (see `zombie-scanner detectors`)", name)
+			}
+		}
+	}
 	return nil
 }

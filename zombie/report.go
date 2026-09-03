@@ -12,14 +12,15 @@ type ToolInfo struct {
 
 // Complete result of one scan
 type Report struct {
-	SchemaVersion string      `json:"schema_version"`
-	Tool          ToolInfo    `json:"tool"`
-	AccountID     string      `json:"account_id"`
-	ScannedAt     time.Time   `json:"scanned_at"`
-	Regions       []string    `json:"regions"`
-	Findings      []Finding   `json:"findings"` // never null
-	Errors        []ScanError `json:"errors"`   // never null
-	Summary       Summary     `json:"summary"`
+	SchemaVersion string         `json:"schema_version"`
+	Tool          ToolInfo       `json:"tool"`
+	AccountID     string         `json:"account_id"`
+	ScannedAt     time.Time      `json:"scanned_at"`
+	Regions       []string       `json:"regions"`
+	Findings      []Finding      `json:"findings"` // never null
+	Errors        []ScanError    `json:"errors"`   // never null
+	Summary       Summary        `json:"summary"`
+	Filtered      map[string]int `json:"filtered_out,omitempty"`
 }
 
 type Summary struct {

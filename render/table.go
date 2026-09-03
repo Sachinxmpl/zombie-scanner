@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -47,6 +48,11 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 		r.ScannedAt.Format("2006-01-02 15:04 MST"))))
 
 	if len(r.Findings) == 0 {
+		// "clean account" is a lie if a filter hid everything
+		if len(r.Filtered) > 0 {
+			fmt.Fprintf(w, "No zombies matched your filters (%s).\n", filterSummary(r.Filtered))
+			return nil
+		}
 		fmt.Fprintln(w, "No zombies found. Clean account.")
 		return nil
 	}
@@ -81,9 +87,14 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 		}
 	}
 
-	fmt.Fprintf(w, "\n%d zombie%s · estimated zombie spend ~$%.2f/month · %s\n",
+	hidden := ""
+	if len(r.Filtered) > 0 {
+		hidden = " · " + filterSummary(r.Filtered)
+	}
+
+	fmt.Fprintf(w, "\n%d zombie%s · estimated zombie spend ~$%.2f/month%s · %s\n",
 		r.Summary.ZombieCount, plural(r.Summary.ZombieCount),
-		r.Summary.TotalMonthlyUSD, dim.Render("figures are estimates"))
+		r.Summary.TotalMonthlyUSD, hidden, dim.Render("figures are estimates"))
 
 	return nil
 }
@@ -172,4 +183,14 @@ func plural(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+// sorted, because map iteration order would otherwise change between runs
+func filterSummary(filtered map[string]int) string {
+	parts := make([]string, 0, len(filtered))
+	for name, n := range filtered {
+		parts = append(parts, fmt.Sprintf("%d hidden by %s", n, name))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ", ")
 }
