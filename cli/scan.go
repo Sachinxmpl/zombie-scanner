@@ -77,7 +77,7 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
-	eng := &scan.Engine{AWS: aws, Cfg: cfg, Filters: filters, Log: logger}
+	eng := &scan.Engine{AWS: aws, Cfg: cfg, Filters: filters, Log: logger, Concurrency: o.Concurrency}
 
 	opts := scan.Options{Only: o.Only, Skip: o.Skip, AllRegions: o.AllRegions}
 	if o.Region != "" {
