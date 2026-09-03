@@ -96,6 +96,7 @@ It never creates, modifies, or deletes anything.`,
 		newScanCommand(&o),
 		newDetectorsCommand(),
 		newVersionCommand(version, commit),
+		newIAMPolicyCommand(&o),
 	)
 
 	return root

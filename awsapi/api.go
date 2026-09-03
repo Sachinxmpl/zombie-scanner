@@ -11,6 +11,11 @@ import (
 
 // -> aws api is boudary between scanner and  AWS. Exists -> so no other package holds a concrete SDK client
 
+var RequiredActions = []string{
+	"sts:GetCallerIdentity",
+	"ec2:DescribeRegions",
+}
+
 // Only the EC2 operations this tool uses
 type EC2API interface {
 	DescribeInstances(ctx context.Context, in *ec2.DescribeInstancesInput, opts ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error)
