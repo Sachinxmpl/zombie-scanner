@@ -83,7 +83,7 @@ It never creates, modifies, or deletes anything.`,
 	pf.BoolVar(&o.Strict, "strict", false, "exit 1 if any detector fails to run")
 	pf.StringVar(&o.LogLevel, "log-level", "info", "log level: debug|info|warn|error")
 
-	pf.IntVar(&o.Concurrency, "concurrency", 0, "regions to scan in parallel (default 8)")
+	pf.IntVar(&o.Concurrency, "concurrency", 8, "regions to scan in parallel (default 8)")
 
 	// --region and --all-regions are mutually exclusive
 	root.MarkFlagsMutuallyExclusive("region", "all-regions")
