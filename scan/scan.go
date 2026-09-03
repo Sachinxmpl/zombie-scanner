@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
@@ -13,6 +14,7 @@ import (
 	"github.com/Sachinxmpl/zombie-scanner/price"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 	"github.com/aws/smithy-go"
+	"golang.org/x/sync/errgroup"
 )
 
 // engine runs a scan
@@ -22,6 +24,9 @@ type Engine struct {
 	Filters []filter.Filter
 	Log     *slog.Logger
 
+	// no of parallel regions scans.
+	Concurrency int
+
 	Clock func() time.Time
 }
 
@@ -29,6 +34,15 @@ type Options struct {
 	Regions    []string
 	AllRegions bool // scan every region the account has opted into
 	Only, Skip []string
+}
+
+const defaultConcurrency = 8
+
+func (e *Engine) concurrency() int {
+	if e.Concurrency > 0 {
+		return e.Concurrency
+	}
+	return defaultConcurrency
 }
 
 func (e *Engine) log() *slog.Logger {
@@ -68,18 +82,42 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 		Errors:    []zombie.ScanError{},
 	}
 
-	for _, region := range regions {
-		found, dropped, errs := e.scanOneRegion(ctx, region, account, now, o)
-		report.Findings = append(report.Findings, found...)
-		report.Errors = append(report.Errors, errs...)
-		for name, n := range dropped {
-			if report.Filtered == nil {
-				report.Filtered = map[string]int{}
-			}
-			report.Filtered[name] += n
-		}
-	}
+	var (
+		mu       sync.Mutex
+		findings []zombie.Finding
+		scanErrs []zombie.ScanError
+		filtered = map[string]int{}
+	)
 
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(e.concurrency())
+
+	for _, region := range regions {
+		g.Go(func() error {
+			start := time.Now()
+			found, dropped, errs := e.scanOneRegion(gctx, region, account, now, o)
+
+			mu.Lock()
+			findings = append(findings, found...)
+			scanErrs = append(scanErrs, errs...)
+			for name, n := range dropped {
+				filtered[name] += n
+			}
+			mu.Unlock()
+
+			e.log().Debug("region scanned", "region", region, "findings", len(found), "errors", len(errs), "took", time.Since(start))
+
+			// nil -> returning error would cancle gctx
+			return nil
+		})
+	}
+	_ = g.Wait()
+
+	report.Findings = findings
+	report.Errors = scanErrs
+	if len(filtered) > 0 {
+		report.Filtered = filtered
+	}
 	report.Summary = summarize(report.Findings)
 	report.Normalize() // the never-null guarantee, once, at the end
 	return report, nil
