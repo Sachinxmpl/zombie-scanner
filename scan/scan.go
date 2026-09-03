@@ -3,6 +3,7 @@ package scan
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
@@ -19,6 +20,7 @@ type Engine struct {
 	AWS     awsapi.Factory
 	Cfg     detect.Config
 	Filters []filter.Filter
+	Log     *slog.Logger
 
 	Clock func() time.Time
 }

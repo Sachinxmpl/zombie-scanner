@@ -30,7 +30,7 @@ func main() {
 
 // 0  scan completed (zombies may exist)
 // 1  fatal - no credentials, bad flags, every region failed
-// 2  spend exceeded --fail-if-above
+// 2  Scan succeeded, but spend exceeded --fail-if-above
 func exitCode(_ error) int {
 	return 1
 }

@@ -38,6 +38,7 @@ func Apply(fs []zombie.Finding, filters []Filter) ([]zombie.Finding, map[string]
 type MinCost struct {
 	USD float64
 }
+
 func (MinCost) Name() string {
 	return "--min-cost"
 }
@@ -48,6 +49,7 @@ func (m MinCost) Keep(f zombie.Finding) bool {
 type MinConfidence struct {
 	Level zombie.Confidence
 }
+
 func (MinConfidence) Name() string {
 	return "--confidence"
 }

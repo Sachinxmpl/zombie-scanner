@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 
 	"github.com/spf13/cobra"
 
@@ -70,7 +72,12 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
-	eng := &scan.Engine{AWS: aws, Cfg: cfg, Filters: filters}
+	logger, err := newLogger(cmd.ErrOrStderr(), o.LogLevel, o.Verbose)
+	if err != nil {
+		return err
+	}
+
+	eng := &scan.Engine{AWS: aws, Cfg: cfg, Filters: filters, Log: logger}
 
 	opts := scan.Options{Only: o.Only, Skip: o.Skip, AllRegions: o.AllRegions}
 	if o.Region != "" {
@@ -118,4 +125,14 @@ func validateDetectors(lists ...[]string) error {
 		}
 	}
 	return nil
+}
+
+func newLogger(w io.Writer, level string, verbose bool) (*slog.Logger, error) {
+	var l slog.Level
+	if verbose {
+		l = slog.LevelDebug
+	} else if err := l.UnmarshalText([]byte(level)); err != nil {
+		return nil, fmt.Errorf("unknown log level %q (want debug, info, warn or error)", level)
+	}
+	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: l})), nil
 }
