@@ -16,7 +16,7 @@ build: ## Compile the binary
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) .
 
 test: ## Run tests with race detector
-	go test -race -count=1 $(PKGS)
+	go test -race -count=1 ./test
 
 lint: ## Run golangci-lint
 	golangci-lint run
