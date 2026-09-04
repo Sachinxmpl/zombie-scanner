@@ -6,7 +6,7 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build test lint fmt tidy cover clean check verify iam-policy
+.PHONY: help build test lint fmt tidy cover clean check verify iam-policy release-check snapshot
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -38,3 +38,9 @@ check: build test lint verify ## Everything CI runs
 
 iam-policy: build ## Regenerate docs/iam-policy.json
 	./$(BINARY) iam-policy > docs/iam-policy.json
+
+release-check: ## Validate .goreleaser.yaml
+	goreleaser check
+
+snapshot: ## Build a local release into dist/ without publishing
+	goreleaser release --snapshot --clean --skip=sbom

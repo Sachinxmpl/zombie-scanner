@@ -78,3 +78,28 @@ jobs:
         run: ./scripts/check-readonly.sh
       - name: the pure packages have no AWS SDK dependency
         run: ./scripts/check-arch.sh
+
+  release-config:
+    name: release-config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean --single-target
+  
+  vuln:
+    name: vuln
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: govulncheck ./...

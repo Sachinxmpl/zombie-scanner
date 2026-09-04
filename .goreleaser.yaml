@@ -11,7 +11,7 @@ builds:
     main: .
     binary: zombie-scanner
     flags:
-      - trimpath
+      - -trimpath
     ldflags:
         - -s -w 
         - -X main.version={{.Version}}
