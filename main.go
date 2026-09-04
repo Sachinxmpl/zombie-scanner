@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	"github.com/Sachinxmpl/zombie-scanner/cli"
 )
@@ -17,6 +19,23 @@ var (
 	version = "dev"
 	commit  = "none"
 )
+
+func init() {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+	if version == "dev" && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		version = strings.TrimPrefix(bi.Main.Version, "v")
+	}
+	if commit == "none" {
+		for _, s := range bi.Settings {
+			if s.Key == "vcs.revision" && len(s.Value) >= 7 {
+				commit = s.Value[:7]
+			}
+		}
+	}
+}
 
 func main() {
 	root := cli.NewRootCommand(version, commit)
