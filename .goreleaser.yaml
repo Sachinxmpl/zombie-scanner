@@ -1,0 +1,106 @@
+version: 2
+
+project_name: zombie-scanner
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: zombie-scanner
+    main: .
+    binary: zombie-scanner
+    flags:
+      - trimpath
+    ldflags:
+        - -s -w 
+        - -X main.version={{.Version}}
+        - -X main.commit={{.ShortCommit}}
+    mod_timestamp: "{{.CommitTimestamp}}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}_{{.Arch}}"
+    files:
+      - LICENSE
+      - README.md
+      - docs/iam-policy.json
+
+nfpms:
+  - id: packages
+    package_name: zombie-scanner
+    vendor: Sachin K.C.
+    homepage: https://github.com/Sachinxmpl/zombie-scanner
+    maintainer: Sachin K.C. <sachinxmpl6@gmail.com>
+    description: Finds AWS resources that are dead but still billing
+    license: MIT
+    formats: [deb, rpm, apk]
+    contents:
+      - src: docs/iam-policy.json
+        dst: /usr/share/zombie-scanner/iam-policy.json
+
+sboms:
+  - artifacts: archive
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Other
+      order: 99
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - Merge pull request
+      - Merge branch
+
+
+release:
+  prerelease: auto # v0.1.0-rc1 is marked pre-release automatically
+  footer: |
+    ## Install
+
+    ```bash
+    go install github.com/Sachinxmpl/zombie-scanner@{{ .Tag }}
+    ```
+
+    Or download a binary above. Debian, RPM and Alpine packages are attached.
+
+    ## Verify
+
+    ```bash
+    sha256sum -c checksums.txt --ignore-missing
+
+    gh attestation verify zombie-scanner_{{ .Version }}_linux_amd64.tar.gz \
+      --repo Sachinxmpl/zombie-scanner
+    ```
+
+    zombie-scanner is read-only. Run `zombie-scanner iam-policy` for the exact
+    permissions it needs.

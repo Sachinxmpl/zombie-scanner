@@ -3,6 +3,7 @@ docs/docs.md
 .env
 *.local.yaml
 
+dist/
 
 .DS_Store
 .idea/
