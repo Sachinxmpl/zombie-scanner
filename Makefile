@@ -6,7 +6,7 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build test race lint fmt tidy cover clean check iam-policy
+.PHONY: help build test lint fmt tidy cover clean check verify iam-policy
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -30,7 +30,11 @@ tidy: ## Sync go.mod/go.sum
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out coverage.html
 
-check: build race lint
+verify: ## Very the read-only and architecture gates
+	@./scripts/check-readonly.sh
+	@./scripts/check-arch.sh
+
+check: build test lint verify ## Everything CI runs
 
 iam-policy: build ## Regenerate docs/iam-policy.json
 	./$(BINARY) iam-policy > docs/iam-policy.json

@@ -65,3 +65,16 @@ jobs:
         run: |
           go run .  iam-policy > /tmp/generated.json
           diff -u docs/iam-policy.json /tmp/generated.json
+
+  invariants:
+    name: invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: zombie-scanner never mutates anything
+        run: ./scripts/check-readonly.sh
+      - name: the pure packages have no AWS SDK dependency
+        run: ./scripts/check-arch.sh
