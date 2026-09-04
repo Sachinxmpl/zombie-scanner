@@ -56,16 +56,23 @@ go install github.com/Sachinxmpl/zombie-scanner@latest
 **Linux packages**
 
 ```bash
+VERSION=$(curl -s https://api.github.com/repos/Sachinxmpl/zombie-scanner/releases/latest \
+  | grep -oP '"tag_name": "v\K[^"]+')
+BASE=https://github.com/Sachinxmpl/zombie-scanner/releases/download/v${VERSION}
+
 # Debian / Ubuntu
-curl -sLO https://github.com/Sachinxmpl/zombie-scanner/releases/latest/download/zombie-scanner_linux_amd64.deb
-sudo dpkg -i zombie-scanner_linux_amd64.deb
+curl -sLO ${BASE}/zombie-scanner_${VERSION}_linux_amd64.deb
+sudo dpkg -i zombie-scanner_${VERSION}_linux_amd64.deb
 
 # RHEL / Fedora
-sudo rpm -i https://github.com/Sachinxmpl/zombie-scanner/releases/latest/download/zombie-scanner_linux_amd64.rpm
+sudo rpm -i ${BASE}/zombie-scanner_${VERSION}_linux_amd64.rpm
 
 # Alpine
-sudo apk add --allow-untrusted zombie-scanner_linux_amd64.apk
+curl -sLO ${BASE}/zombie-scanner_${VERSION}_linux_amd64.apk
+sudo apk add --allow-untrusted zombie-scanner_${VERSION}_linux_amd64.apk
 ```
+
+Replace `amd64` with `arm64` as needed.
 
 **Binaries** for Linux, macOS and Windows (amd64 and arm64) are attached to every
 [release](https://github.com/Sachinxmpl/zombie-scanner/releases).
@@ -86,7 +93,7 @@ confirm a binary was built from a specific commit by this repository's workflow:
 ```bash
 sha256sum -c checksums.txt --ignore-missing
 
-gh attestation verify zombie-scanner_0.1.0_linux_amd64.tar.gz \
+gh attestation verify zombie-scanner_0.1.1_linux_amd64.tar.gz \
   --repo Sachinxmpl/zombie-scanner
 ```
 
@@ -213,7 +220,7 @@ zombie-scanner --json | jq -r '.findings[] | select(.confidence == "HIGH") | .re
 ```json
 {
   "schema_version": "1",
-  "tool": { "name": "zombie-scanner", "version": "0.1.0", "commit": "a1b2c3d" },
+  "tool": { "name": "zombie-scanner", "version": "0.1.1", "commit": "30a69f0" },
   "account_id": "123456789012",
   "regions": ["us-east-1"],
   "findings": [

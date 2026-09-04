@@ -45,13 +45,27 @@ Release artifacts carry checksums, an SBOM, and a build provenance attestation:
 ```bash
 sha256sum -c checksums.txt --ignore-missing
 
-gh attestation verify zombie-scanner_<version>_linux_amd64.tar.gz \
+gh attestation verify zombie-scanner_0.1.1_linux_amd64.tar.gz \
   --repo Sachinxmpl/zombie-scanner
 ```
 
 Attestation proves the artifact was built from a specific commit by this
-repository's release workflow.
+repository's release workflow. The signed predicate is
+[SLSA provenance v1](https://slsa.dev/provenance/v1), and the recorded builder
+identity is this repository's release workflow at the tag being released:
+
+```
+https://github.com/Sachinxmpl/zombie-scanner/.github/workflows/release.yml@refs/tags/v0.1.1
+```
+
+If `gh attestation verify` reports a different builder, the artifact did not
+come from this project.
 
 ## Supported versions
 
-Pre-1.0. Security fixes land on the latest release only.
+Pre-1.0. Security fixes land on the latest release only. `v0.1.0` was withdrawn
+before general availability and should not be used; start at `v0.1.1`.
+
+The release toolchain is pinned to the Go version declared in `go.mod`, and CI
+runs `govulncheck` against the standard library and every dependency on each
+pull request.
