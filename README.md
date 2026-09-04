@@ -73,7 +73,7 @@ cd zombie-scanner
 make build
 ```
 
-Requires Go 1.22 or later. Pre-built binaries and a Homebrew tap are coming with
+Requires Go 1.25 or later. Pre-built binaries and a Homebrew tap are coming with
 the first tagged release.
 
 ## Usage
