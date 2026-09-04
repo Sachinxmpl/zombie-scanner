@@ -70,7 +70,7 @@ sudo apk add --allow-untrusted zombie-scanner_linux_amd64.apk
 **Binaries** for Linux, macOS and Windows (amd64 and arm64) are attached to every
 [release](https://github.com/Sachinxmpl/zombie-scanner/releases).
 
-**From source** — requires Go 1.25 or later:
+**From source** — requires Go 1.25.14 or later:
 
 ```bash
 git clone https://github.com/Sachinxmpl/zombie-scanner

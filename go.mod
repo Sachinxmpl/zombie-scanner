@@ -1,6 +1,6 @@
 module github.com/Sachinxmpl/zombie-scanner
 
-go 1.25.0
+go 1.25.14
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.45.1
