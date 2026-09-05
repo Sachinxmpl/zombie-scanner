@@ -70,6 +70,7 @@ func (rdsStopped) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding {
 			CreatedAt:    &created,
 			Tags:         db.Tags,
 		}
+		f.Meta("status", db.Status)
 		f.Meta("engine", db.Engine)
 		f.Meta("instance_class", db.Class)
 		f.Meta("storage_gib", strconv.Itoa(int(db.StorageGiB)))

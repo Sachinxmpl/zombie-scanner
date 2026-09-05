@@ -35,6 +35,9 @@ type DBInstance struct {
 	StorageGiB  int32
 	MultiAZ     bool
 
+	// empty unless this instance is a read replica
+	ReplicaOf string
+
 	AutoRestartAt *time.Time
 
 	CreatedAt time.Time

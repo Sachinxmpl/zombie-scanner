@@ -153,6 +153,7 @@ permissions it needs.
 | `eip-unassociated`   | HIGH       | Elastic IPs attached to nothing                | flat monthly            |
 | `rds-stopped`        | HIGH       | Stopped databases still paying for storage     | allocated GiB × rate    |
 | `instance-stopped`   | MEDIUM     | Stopped instances still paying for their disks | sum of attached volumes |
+| `rds-idle`           | MEDIUM     | Running databases nothing connected to         | class $/hr × 730 + storage |
 | `nat-idle`           | MEDIUM     | NAT gateways below an outbound-bytes floor     | hourly × 730            |
 | `elb-idle`           | MEDIUM     | ALBs below a request-count floor               | hourly × 730            |
 | `snapshot-aged`      | LOW        | Old snapshots that no AMI references           | size × snapshot rate    |
@@ -171,6 +172,13 @@ the exact date AWS will restart it.
 charge — the attached EBS volumes keep billing at full price, indefinitely. A
 stopped `t3.large` with a 500 GiB root volume is roughly $50/month that looks
 free in the console.
+
+**`rds-idle`** is usually the largest single number in the report, because a
+running database bills for its instance class as well as its storage. When the
+class is one it does not have a rate for, or the engine is Oracle or SQL Server
+where the licence dominates, it reports the storage cost and says in
+`cost_basis` that compute was left out — it never guesses. RDS classes span a
+500x range; a wrong guess would be worse than a visible gap.
 
 **`snapshot-aged`** cross-references every registered AMI before flagging
 anything, because deleting a snapshot an AMI depends on breaks the AMI. If that

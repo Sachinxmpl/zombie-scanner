@@ -159,6 +159,7 @@ func toDBInstance(db rdstypes.DBInstance) zombie.DBInstance {
 		StorageType: aws.ToString(db.StorageType),
 		StorageGiB:  aws.ToInt32(db.AllocatedStorage),
 		MultiAZ:     aws.ToBool(db.MultiAZ),
+		ReplicaOf:   aws.ToString(db.ReadReplicaSourceDBInstanceIdentifier),
 		CreatedAt:   aws.ToTime(db.InstanceCreateTime),
 		Tags:        toRDSTags(db.TagList),
 	}
