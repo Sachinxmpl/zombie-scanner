@@ -29,6 +29,7 @@ type table struct {
 
 	EBSPerGiBMonth        map[string]float64 `json:"ebs_per_gib_month"`
 	RDSStoragePerGiBMonth map[string]float64 `json:"rds_storage_per_gib_month"`
+	RDSInstanceHour       map[string]float64 `json:"rds_instance_hour"`
 	SnapshotPerGiBMonth   float64            `json:"snapshot_per_gib_month"`
 	ElasticIPMonth        float64            `json:"elastic_ip_month"`
 	NATGatewayMonth       float64            `json:"nat_gateway_month"`
@@ -56,6 +57,7 @@ func Updated() string {
 type Rates struct {
 	EBSPerGiBMonth        map[string]float64
 	RDSStoragePerGiBMonth map[string]float64
+	RDSInstanceHour       map[string]float64
 	SnapshotPerGiBMonth   float64
 	ElasticIPMonth        float64
 	NATGatewayMonth       float64
@@ -74,6 +76,7 @@ func For(region string) Rates {
 	return Rates{
 		EBSPerGiBMonth:        base.EBSPerGiBMonth,
 		RDSStoragePerGiBMonth: base.RDSStoragePerGiBMonth,
+		RDSInstanceHour:       base.RDSInstanceHour,
 		SnapshotPerGiBMonth:   base.SnapshotPerGiBMonth,
 		ElasticIPMonth:        base.ElasticIPMonth,
 		NATGatewayMonth:       base.NATGatewayMonth,
@@ -133,12 +136,38 @@ func priceEBSVolume(f *zombie.Finding, r Rates) {
 	}
 }
 
-// Stopping an RDS instance stops compute only. Allocated storage bills at full rate the whole time
+// An RDS instance bills for storage always, and for instance-hours only while it is running
 func priceRDSInstance(f *zombie.Finding, r Rates) {
-	sizeGiB, err := strconv.Atoi(f.Metadata["storage_gib"])
-	if err != nil || sizeGiB <= 0 {
+	storage, basis := rdsStorageCost(f, r)
+	if basis == "" {
 		f.CostBasis = "unknown storage size not priced"
 		return
+	}
+
+	total, parts := storage, basis
+	if f.Metadata["status"] == "available" {
+		compute, note := rdsComputeCost(f, r)
+		total += compute
+		parts += " + " + note
+	} else {
+		parts += " (compute is free while stopped)"
+	}
+
+	az := "single-AZ"
+	if rdsAZMultiplier(f) == 2 {
+		az = "multi-AZ x2"
+	}
+
+	f.MonthlyCost = total
+	f.CostBasis = fmt.Sprintf("%s, %s x %.2f (%s) [lower bound: backups excluded]",
+		parts, az, r.RegionMultiplier, r.Region)
+	f.Meta("price_lower_bound", "true")
+}
+
+func rdsStorageCost(f *zombie.Finding, r Rates) (float64, string) {
+	gib, err := strconv.Atoi(f.Metadata["storage_gib"])
+	if err != nil || gib <= 0 {
+		return 0, ""
 	}
 
 	storageType := f.Metadata["storage_type"]
@@ -148,19 +177,38 @@ func priceRDSInstance(f *zombie.Finding, r Rates) {
 		f.Meta("price_fallback", "true")
 	}
 
-	azMult, azNote := 1.0, "single-AZ"
-	if f.Metadata["multi_az"] == "true" {
-		azMult, azNote = 2.0, "multi-AZ x2"
-	}
-
-	f.MonthlyCost = float64(sizeGiB) * rate * azMult * r.RegionMultiplier
-	f.CostBasis = fmt.Sprintf("%d GiB %s $%.3f/GiB-mo %s x %.2f (%s) [lower bound: storage only, compute is free while stopped, backups excluded]",
-		sizeGiB, storageType, rate, azNote, r.RegionMultiplier, r.Region)
-	f.Meta("price_lower_bound", "true")
-
+	basis := fmt.Sprintf("%d GiB %s $%.3f/GiB-mo", gib, storageType, rate)
 	if !known {
-		f.CostBasis += fmt.Sprintf(" [%q unknown priced as %s]", storageType, fallbackRDSStorageType)
+		basis += fmt.Sprintf(" [%q unknown priced as %s]", storageType, fallbackRDSStorageType)
 	}
+	return float64(gib) * rate * rdsAZMultiplier(f) * r.RegionMultiplier, basis
+}
+
+// Returns zero and a stated reason when the class or engine is not in the table.
+// RDS classes span 500x, so no fallback
+func rdsComputeCost(f *zombie.Finding, r Rates) (float64, string) {
+	engine := f.Metadata["engine"]
+	if strings.HasPrefix(engine, "oracle") || strings.HasPrefix(engine, "sqlserver") {
+		f.Meta("price_partial", "true")
+		return 0, fmt.Sprintf("compute not priced (%s licence cost varies by licence model)", engine)
+	}
+
+	class := f.Metadata["instance_class"]
+	hourly, known := r.RDSInstanceHour[class]
+	if !known {
+		f.Meta("price_partial", "true")
+		return 0, fmt.Sprintf("compute not priced (no rate for %s)", class)
+	}
+
+	return hourly * HoursPerMonth * rdsAZMultiplier(f) * r.RegionMultiplier,
+		fmt.Sprintf("%s $%.3f/hr x %.0f hr", class, hourly, HoursPerMonth)
+}
+
+func rdsAZMultiplier(f *zombie.Finding) float64 {
+	if f.Metadata["multi_az"] == "true" {
+		return 2
+	}
+	return 1
 }
 
 // Elastic IPs bill a flat hourly rate for existing, so there is nothing to
