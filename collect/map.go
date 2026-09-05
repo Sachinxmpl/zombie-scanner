@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	rdstypes "github.com/aws/aws-sdk-go-v2/service/rds/types"
 
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
@@ -146,4 +147,41 @@ func metricSuffix(arn string) string {
 		return ""
 	}
 	return arn[i+len(marker):]
+}
+
+func toDBInstance(db rdstypes.DBInstance) zombie.DBInstance {
+	out := zombie.DBInstance{
+		ID:          aws.ToString(db.DBInstanceIdentifier),
+		ARN:         aws.ToString(db.DBInstanceArn),
+		Status:      aws.ToString(db.DBInstanceStatus),
+		Engine:      aws.ToString(db.Engine),
+		Class:       aws.ToString(db.DBInstanceClass),
+		StorageType: aws.ToString(db.StorageType),
+		StorageGiB:  aws.ToInt32(db.AllocatedStorage),
+		MultiAZ:     aws.ToBool(db.MultiAZ),
+		CreatedAt:   aws.ToTime(db.InstanceCreateTime),
+		Tags:        toRDSTags(db.TagList),
+	}
+
+	// copy rather than alias the SDK's pointer
+	if db.AutomaticRestartTime != nil {
+		t := db.AutomaticRestartTime.UTC()
+		out.AutoRestartAt = &t
+	}
+
+	return out
+}
+
+// RDS tag type differ from EC2, (toTags doesn't work here)
+func toRDSTags(tags []rdstypes.Tag) map[string]string {
+	if len(tags) == 0 {
+		return nil
+	}
+	m := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if k := aws.ToString(t.Key); k != "" {
+			m[k] = aws.ToString(t.Value)
+		}
+	}
+	return m
 }

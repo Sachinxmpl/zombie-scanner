@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.70.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.325.1
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.61.0
+	github.com/aws/aws-sdk-go-v2/service/rds v1.127.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.6
 	github.com/aws/smithy-go v1.28.1
 	github.com/charmbracelet/lipgloss v1.1.0
