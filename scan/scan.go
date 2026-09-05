@@ -166,6 +166,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.Volumes = v // nil on error - detectors range over it zero times
 			return err
 		}},
+		{"rds", "DescribeDBInstances", func(ctx context.Context, inv *zombie.Inventory) error {
+			dbs, err := collect.DbInstances(ctx, clients.RDS)
+			inv.DBInstances = dbs
+			return err
+		}},
 		{"ec2", "DescribeAddresses", func(ctx context.Context, inv *zombie.Inventory) error {
 			a, err := collect.Addresses(ctx, clients.EC2)
 			inv.Addresses = a

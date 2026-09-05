@@ -19,16 +19,20 @@ const HoursPerMonth = 730.0
 // fallback to gp2 if volume type unkonw in findings metadata
 const fallbackVolumeType = "gp2"
 
+// RDS storage types span $0.100-$0.125/GiB-mo, so a fallback is wrong by at most 25%.
+const fallbackRDSStorageType = "gp2"
+
 // mirros rates.json
 type table struct {
 	Updated string `json:"_updated"`
 	Source  string `json:"_source"`
 
-	EBSPerGiBMonth      map[string]float64 `json:"ebs_per_gib_month"`
-	SnapshotPerGiBMonth float64            `json:"snapshot_per_gib_month"`
-	ElasticIPMonth      float64            `json:"elastic_ip_month"`
-	NATGatewayMonth     float64            `json:"nat_gateway_month"`
-	ALBMonth            float64            `json:"alb_month"`
+	EBSPerGiBMonth        map[string]float64 `json:"ebs_per_gib_month"`
+	RDSStoragePerGiBMonth map[string]float64 `json:"rds_storage_per_gib_month"`
+	SnapshotPerGiBMonth   float64            `json:"snapshot_per_gib_month"`
+	ElasticIPMonth        float64            `json:"elastic_ip_month"`
+	NATGatewayMonth       float64            `json:"nat_gateway_month"`
+	ALBMonth              float64            `json:"alb_month"`
 
 	RegionMultipliers       map[string]float64 `json:"region_multipliers"`
 	DefaultRegionMultiplier float64            `json:"default_region_multiplier"`
@@ -50,11 +54,12 @@ func Updated() string {
 
 // Rates -> prie table resolved for one region
 type Rates struct {
-	EBSPerGiBMonth      map[string]float64
-	SnapshotPerGiBMonth float64
-	ElasticIPMonth      float64
-	NATGatewayMonth     float64
-	ALBMonth            float64
+	EBSPerGiBMonth        map[string]float64
+	RDSStoragePerGiBMonth map[string]float64
+	SnapshotPerGiBMonth   float64
+	ElasticIPMonth        float64
+	NATGatewayMonth       float64
+	ALBMonth              float64
 
 	Region           string
 	RegionMultiplier float64
@@ -67,13 +72,14 @@ func For(region string) Rates {
 		mult = base.DefaultRegionMultiplier
 	}
 	return Rates{
-		EBSPerGiBMonth:      base.EBSPerGiBMonth,
-		SnapshotPerGiBMonth: base.SnapshotPerGiBMonth,
-		ElasticIPMonth:      base.ElasticIPMonth,
-		NATGatewayMonth:     base.NATGatewayMonth,
-		ALBMonth:            base.ALBMonth,
-		Region:              region,
-		RegionMultiplier:    mult,
+		EBSPerGiBMonth:        base.EBSPerGiBMonth,
+		RDSStoragePerGiBMonth: base.RDSStoragePerGiBMonth,
+		SnapshotPerGiBMonth:   base.SnapshotPerGiBMonth,
+		ElasticIPMonth:        base.ElasticIPMonth,
+		NATGatewayMonth:       base.NATGatewayMonth,
+		ALBMonth:              base.ALBMonth,
+		Region:                region,
+		RegionMultiplier:      mult,
 	}
 }
 
@@ -86,6 +92,7 @@ var pricers = map[string]Pricer{
 	"ec2-instance": priceStoppedInstance,
 	"nat-gateway":  priceNATGateway,
 	"alb":          priceALB,
+	"rds-instance": priceRDSInstance,
 }
 
 // Prices every finding for one region
@@ -123,6 +130,36 @@ func priceEBSVolume(f *zombie.Finding, r Rates) {
 
 	if !known {
 		f.CostBasis += fmt.Sprintf(" [%q unknown priced as %s]", volType, fallbackVolumeType)
+	}
+}
+
+// Stopping an RDS instance stops compute only. Allocated storage bills at full rate the whole time
+func priceRDSInstance(f *zombie.Finding, r Rates) {
+	sizeGiB, err := strconv.Atoi(f.Metadata["storage_gib"])
+	if err != nil || sizeGiB <= 0 {
+		f.CostBasis = "unknown storage size not priced"
+		return
+	}
+
+	storageType := f.Metadata["storage_type"]
+	rate, known := r.RDSStoragePerGiBMonth[storageType]
+	if !known {
+		rate = r.RDSStoragePerGiBMonth[fallbackRDSStorageType]
+		f.Meta("price_fallback", "true")
+	}
+
+	azMult, azNote := 1.0, "single-AZ"
+	if f.Metadata["multi_az"] == "true" {
+		azMult, azNote = 2.0, "multi-AZ x2"
+	}
+
+	f.MonthlyCost = float64(sizeGiB) * rate * azMult * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("%d GiB %s $%.3f/GiB-mo %s x %.2f (%s) [lower bound: storage only, compute is free while stopped, backups excluded]",
+		sizeGiB, storageType, rate, azNote, r.RegionMultiplier, r.Region)
+	f.Meta("price_lower_bound", "true")
+
+	if !known {
+		f.CostBasis += fmt.Sprintf(" [%q unknown priced as %s]", storageType, fallbackRDSStorageType)
 	}
 }
 

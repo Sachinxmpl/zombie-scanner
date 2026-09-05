@@ -1,5 +1,5 @@
 {
-  "_updated": "2026-08-16",
+  "_updated": "2026-09-05",
   "_source": "AWS Public list prices, us-east-1: https://aws.amazon.com/ebs/pricing",
   "_notes": "Estimates. Real accounts pay less unser EDPs, savings plans and private pricing",
   "ebs_per_gib_month": {
@@ -12,6 +12,13 @@
     "standard": 0.05
   },
   "snapshot_per_gib_month": 0.05,
+  "rds_storage_per_gib_month": {
+    "gp2": 0.115,
+    "gp3": 0.115,
+    "io1": 0.125,
+    "io2": 0.125,
+    "standard": 0.1
+  },
   "elastic_ip_month": 3.65,
   "nat_gateway_month": 32.85,
   "alb_month": 16.43,
