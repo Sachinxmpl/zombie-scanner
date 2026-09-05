@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
@@ -137,6 +138,21 @@ func (f *ELB) DescribeLoadBalancers(ctx context.Context, in *elb.DescribeLoadBal
 	return &elb.DescribeLoadBalancersOutput{}, nil
 }
 
+// RDS is a fake awsapi.RDSAPI.
+type RDS struct {
+	DescribeDBInstancesFunc func(context.Context, *rds.DescribeDBInstancesInput) (*rds.DescribeDBInstancesOutput, error)
+	Calls                   []string
+}
+
+func (f *RDS) DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstancesInput,
+	_ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
+	f.Calls = append(f.Calls, "DescribeDBInstances")
+	if f.DescribeDBInstancesFunc != nil {
+		return f.DescribeDBInstancesFunc(ctx, in)
+	}
+	return &rds.DescribeDBInstancesOutput{}, nil
+}
+
 // Factory is a fake awsapi.Factory.
 type Factory struct {
 	Clients   awsapi.Clients
@@ -176,8 +192,10 @@ func (f *Factory) BaseRegion() string {
 
 // Compile-time proof the fakes still match the real interfaces.
 var (
-	_ awsapi.EC2API  = (*EC2)(nil)
-	_ awsapi.STSAPI  = (*STS)(nil)
-	_ awsapi.ELBAPI  = (*ELB)(nil)
-	_ awsapi.Factory = (*Factory)(nil)
+	_ awsapi.EC2API        = (*EC2)(nil)
+	_ awsapi.STSAPI        = (*STS)(nil)
+	_ awsapi.ELBAPI        = (*ELB)(nil)
+	_ awsapi.RDSAPI        = (*RDS)(nil)
+	_ awsapi.CloudWatchAPI = (*CloudWatch)(nil)
+	_ awsapi.Factory       = (*Factory)(nil)
 )

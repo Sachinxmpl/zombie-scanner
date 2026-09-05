@@ -68,6 +68,8 @@ mutations="$mutations|AttachVolume|DetachVolume|CreateSnapshot|DeleteSnapshot"
 mutations="$mutations|AllocateAddress|ReleaseAddress|AssociateAddress|DisassociateAddress"
 mutations="$mutations|CreateNatGateway|DeleteNatGateway|DeregisterImage|DeleteLoadBalancer"
 mutations="$mutations|PutMetricData|CreateBucket|DeleteObject"
+mutations="$mutations|CreateDBInstance|DeleteDBInstance|ModifyDBInstance|RebootDBInstance"
+mutations="$mutations|StartDBInstance|StopDBInstance|CreateDBSnapshot|DeleteDBSnapshot"
 
 if git ls-files '*.go' \
   | grep -v '_test\.go$' \

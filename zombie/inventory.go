@@ -17,11 +17,28 @@ type Inventory struct {
 	Instances     []Instance
 	NATGateways   []NATGateway
 	LoadBalancers []LoadBalancer
+	DBInstances   []DBInstance
 
 	// operations that didn't complete, "service:Operation"
 	Failed map[string]bool
 
 	Metrics MetricSet
+}
+
+type DBInstance struct {
+	ID          string
+	ARN         string
+	Status      string // "available", "stopped", "starting"
+	Engine      string // "postgres", "mysql", "aurora-postgresql"
+	Class       string // "db.t3.medium", "db.t3.micro"
+	StorageType string // "gp2", "gp3", "io1", "io2", "standard"
+	StorageGiB  int32
+	MultiAZ     bool
+
+	AutoRestartAt *time.Time
+
+	CreatedAt time.Time
+	Tags      map[string]string
 }
 
 type Volume struct {
