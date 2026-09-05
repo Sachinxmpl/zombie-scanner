@@ -1,6 +1,6 @@
 {
   "_updated": "2026-09-05",
-  "_source": "AWS Public list prices, us-east-1: https://aws.amazon.com/ebs/pricing",
+  "_source": "AWS public list prices, us-east-1: https://aws.amazon.com/ebs/pricing and https://aws.amazon.com/rds/postgresql/pricing",
   "_notes": "Estimates. Real accounts pay less unser EDPs, savings plans and private pricing",
   "ebs_per_gib_month": {
     "gp3": 0.08,

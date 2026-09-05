@@ -10,7 +10,7 @@ import (
 )
 
 // Returns every RDS DB instance in the region
-func DbInstances(ctx context.Context, api awsapi.RDSAPI) ([]zombie.DBInstance, error) {
+func DBInstances(ctx context.Context, api awsapi.RDSAPI) ([]zombie.DBInstance, error) {
 	out := []zombie.DBInstance{}
 	p := rds.NewDescribeDBInstancesPaginator(api, &rds.DescribeDBInstancesInput{})
 

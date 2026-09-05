@@ -167,7 +167,7 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			return err
 		}},
 		{"rds", "DescribeDBInstances", func(ctx context.Context, inv *zombie.Inventory) error {
-			dbs, err := collect.DbInstances(ctx, clients.RDS)
+			dbs, err := collect.DBInstances(ctx, clients.RDS)
 			inv.DBInstances = dbs
 			return err
 		}},

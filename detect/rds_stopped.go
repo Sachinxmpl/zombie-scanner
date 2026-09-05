@@ -16,11 +16,11 @@ func init() {
 type rdsStopped struct{}
 
 func (rdsStopped) Name() string {
-	return "rds_stopped"
+	return "rds-stopped"
 }
 
 func (rdsStopped) Describe() string {
-	return "Stopped RDS instances whose storage keeps billing, and that AWS restarts after 7b days"
+	return "Stopped RDS instances whose storage keeps billing, and that AWS restarts after 7 days"
 }
 
 func (rdsStopped) Needs() []string {
@@ -37,7 +37,9 @@ func (rdsStopped) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding {
 			continue
 		}
 
-		// Aurora storage bills on cluster by consumption, so instance's allocatedstorage does not matter. Aurora storage is not billed when the cluster is stopped.
+		// Aurora storage bills on the cluster by consumption, so a member's
+		// AllocatedStorage reads 1 and says nothing about the bill. It still
+		// bills while stopped - we just cannot size it from here.
 		if strings.HasPrefix(db.Engine, "aurora") {
 			continue
 		}
