@@ -64,3 +64,42 @@ func TestRDSMultiAZDoublesStorageCost(t *testing.T) {
 		t.Errorf("multi-AZ %.2f, want 2x single-AZ %.2f", out[1].MonthlyCost, out[0].MonthlyCost)
 	}
 }
+
+// Compute is added only while running, and never guessed for an unknown class.
+func TestRDSPricingFollowsStatusAndClass(t *testing.T) {
+	mk := func(status, class string) zombie.Finding {
+		f := zombie.Finding{ResourceType: "rds-instance"}
+		f.Meta("status", status)
+		f.Meta("engine", "postgres")
+		f.Meta("instance_class", class)
+		f.Meta("storage_gib", "100")
+		f.Meta("storage_type", "gp3")
+		f.Meta("multi_az", "false")
+		return f
+	}
+
+	out := price.Apply([]zombie.Finding{
+		mk("stopped", "db.m5.large"),
+		mk("available", "db.m5.large"),
+		mk("available", "db.made.up"),
+	}, "us-east-1")
+
+	stopped, running, unknown := out[0], out[1], out[2]
+
+	if stopped.MonthlyCost <= 0 {
+		t.Fatalf("stopped priced at %v", stopped.MonthlyCost)
+	}
+	if running.MonthlyCost <= stopped.MonthlyCost {
+		t.Errorf("running %.2f should exceed stopped %.2f", running.MonthlyCost, stopped.MonthlyCost)
+	}
+	if unknown.MonthlyCost != stopped.MonthlyCost {
+		t.Errorf("unknown class priced at %.2f, want storage only %.2f",
+			unknown.MonthlyCost, stopped.MonthlyCost)
+	}
+	if !strings.Contains(unknown.CostBasis, "db.made.up") {
+		t.Errorf("cost basis does not name the missing class: %q", unknown.CostBasis)
+	}
+	if unknown.Metadata["price_partial"] != "true" {
+		t.Error("unknown class not marked price_partial")
+	}
+}
