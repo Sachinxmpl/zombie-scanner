@@ -166,6 +166,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.Volumes = v // nil on error - detectors range over it zero times
 			return err
 		}},
+		{"rds", "DescribeDBInstances", func(ctx context.Context, inv *zombie.Inventory) error {
+			dbs, err := collect.DBInstances(ctx, clients.RDS)
+			inv.DBInstances = dbs
+			return err
+		}},
 		{"ec2", "DescribeAddresses", func(ctx context.Context, inv *zombie.Inventory) error {
 			a, err := collect.Addresses(ctx, clients.EC2)
 			inv.Addresses = a
@@ -198,7 +203,8 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 		}},
 		// must run after every collector that it builds queries from
 		{"cloudwatch", "GetMetricData", func(ctx context.Context, inv *zombie.Inventory) error {
-			queries := make([]collect.Query, 0, len(inv.NATGateways)+len(inv.LoadBalancers))
+			queries := make([]collect.Query, 0,
+				len(inv.NATGateways)+len(inv.LoadBalancers)+len(inv.DBInstances))
 
 			for _, n := range inv.NATGateways {
 				queries = append(queries, collect.Query{
@@ -217,6 +223,19 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 					Metric:     "RequestCount",
 					Dimension:  "LoadBalancer",
 					ResourceID: lb.MetricSuffix, // never lb.ARN
+				})
+			}
+
+			// stopped instances publish nothing, so querying them wastes a slot in the batch
+			for _, db := range inv.DBInstances {
+				if db.Status != "available" {
+					continue
+				}
+				queries = append(queries, collect.Query{
+					Namespace:  "AWS/RDS",
+					Metric:     "DatabaseConnections",
+					Dimension:  "DBInstanceIdentifier",
+					ResourceID: db.ID,
 				})
 			}
 

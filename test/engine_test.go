@@ -46,7 +46,7 @@ func engineWith(t *testing.T, filters ...filter.Filter) *scan.Engine {
 
 	return &scan.Engine{
 		AWS: &fake.Factory{
-			Clients: awsapi.Clients{EC2: ec2api, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}},
+			Clients: awsapi.Clients{EC2: ec2api, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{}},
 			Account: "123456789012",
 			Base:    "us-east-1",
 		},
@@ -108,7 +108,7 @@ func TestFilteringIsReflectedInTheSummary(t *testing.T) {
 func TestEmptyReportIsStillValid(t *testing.T) {
 	eng := &scan.Engine{
 		AWS: &fake.Factory{Clients: awsapi.Clients{
-			EC2: &fake.EC2{}, CW: &fake.CloudWatch{}, ELB: &fake.ELB{},
+			EC2: &fake.EC2{}, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{},
 		}},
 		Cfg:   detect.Defaults(),
 		Clock: func() time.Time { return now },

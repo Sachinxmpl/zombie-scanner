@@ -13,6 +13,7 @@
         "ec2:DescribeSnapshots",
         "ec2:DescribeVolumes",
         "elasticloadbalancing:DescribeLoadBalancers",
+        "rds:DescribeDBInstances",
         "sts:GetCallerIdentity"
       ],
       "Resource": "*"

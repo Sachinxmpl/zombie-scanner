@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -36,6 +37,10 @@ type CloudWatchAPI interface {
 	GetMetricData(ctx context.Context, in *cloudwatch.GetMetricDataInput, opts ...func(*cloudwatch.Options)) (*cloudwatch.GetMetricDataOutput, error)
 }
 
+type RDSAPI interface {
+	DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstancesInput, opts ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
+}
+
 // Compile time proof that real SDK clients satisfy these interfaces
 // SDK upgrades -> methods changed -> build breaks here
 var (
@@ -43,6 +48,7 @@ var (
 	_ STSAPI        = (*sts.Client)(nil)
 	_ CloudWatchAPI = (*cloudwatch.Client)(nil)
 	_ ELBAPI        = (*elb.Client)(nil)
+	_ RDSAPI        = (*rds.Client)(nil)
 )
 
 // one regions's worth of AWS clients
@@ -56,6 +62,7 @@ type Clients struct {
 	EC2 EC2API
 	CW  CloudWatchAPI
 	ELB ELBAPI
+	RDS RDSAPI
 }
 
 type Factory interface {
