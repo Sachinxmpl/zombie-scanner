@@ -133,8 +133,7 @@ func toLoadBalancer(lb elbtypes.LoadBalancer) zombie.LoadBalancer {
 		Type:         string(lb.Type),
 		MetricSuffix: metricSuffix(arn),
 		CreatedAt:    aws.ToTime(lb.CreatedTime),
-		// DescribeLoadBalancers returns no tags, DescribeTags is a separate
-		// call - deferred to v0.2 with the ignore rules
+		// DescribeLoadBalancers returns no tags, DescribeTags is a separate call
 	}
 }
 

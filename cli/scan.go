@@ -48,6 +48,9 @@ func runScan(cmd *cobra.Command, o options) error {
 	if o.MinCost > 0 {
 		filters = append(filters, filter.MinCost{USD: o.MinCost})
 	}
+	if !o.NoKeepTag && o.KeepTag != "" {
+		filters = append(filters, filter.KeepTag{Key: o.KeepTag})
+	}
 	if o.Confidence != "" {
 		level, err := zombie.ParseConfidence(o.Confidence)
 		if err != nil {
@@ -118,7 +121,6 @@ func runScan(cmd *cobra.Command, o options) error {
 	return nil
 }
 
-// a typo in --only must not silently scan nothing
 func validateDetectors(lists ...[]string) error {
 	known := make(map[string]bool)
 	for _, d := range detect.All() {

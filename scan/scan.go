@@ -107,7 +107,7 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 
 			e.log().Debug("region scanned", "region", region, "findings", len(found), "errors", len(errs), "took", time.Since(start))
 
-			// nil -> returning error would cancle gctx
+			// nil -> returning error would cancel gctx
 			return nil
 		})
 	}
