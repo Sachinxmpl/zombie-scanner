@@ -185,3 +185,16 @@ func toRDSTags(tags []rdstypes.Tag) map[string]string {
 	}
 	return m
 }
+
+func toELBTags(tags []elbtypes.Tag) map[string]string {
+	if len(tags) == 0 {
+		return nil
+	}
+	m := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if k := aws.ToString(t.Key); k != "" {
+			m[k] = aws.ToString(t.Value)
+		}
+	}
+	return m
+}

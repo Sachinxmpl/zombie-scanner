@@ -56,6 +56,7 @@ var (
 // different API and are out of scope.
 type ELBAPI interface {
 	DescribeLoadBalancers(ctx context.Context, in *elb.DescribeLoadBalancersInput, opts ...func(*elb.Options)) (*elb.DescribeLoadBalancersOutput, error)
+	DescribeTags(ctx context.Context, in *elb.DescribeTagsInput, opts ...func(*elb.Options)) (*elb.DescribeTagsOutput, error)
 }
 
 type Clients struct {

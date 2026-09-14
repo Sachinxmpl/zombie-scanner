@@ -25,6 +25,7 @@ func (elbIdle) Describe() string {
 func (elbIdle) Needs() []string {
 	return []string{
 		"elasticloadbalancing:DescribeLoadBalancers",
+		"elasticloadbalancing:DescribeTags",
 		"cloudwatch:GetMetricData",
 	}
 }

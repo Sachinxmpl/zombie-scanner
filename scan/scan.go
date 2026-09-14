@@ -201,6 +201,9 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.LoadBalancers = lbs
 			return err
 		}},
+		{"elasticloadbalancing", "DescribeTags", func(ctx context.Context, inv *zombie.Inventory) error {
+			return collect.LoadBalancerTags(ctx, clients.ELB, inv.LoadBalancers)
+		}},
 		// must run after every collector that it builds queries from
 		{"cloudwatch", "GetMetricData", func(ctx context.Context, inv *zombie.Inventory) error {
 			queries := make([]collect.Query, 0,
