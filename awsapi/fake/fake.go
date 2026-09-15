@@ -126,6 +126,7 @@ func (f *CloudWatch) GetMetricData(ctx context.Context, in *cloudwatch.GetMetric
 // ELB is a fake awsapi.ELBAPI.
 type ELB struct {
 	DescribeLoadBalancersFunc func(context.Context, *elb.DescribeLoadBalancersInput) (*elb.DescribeLoadBalancersOutput, error)
+	DescribeTagsFunc          func(context.Context, *elb.DescribeTagsInput) (*elb.DescribeTagsOutput, error)
 	Calls                     []string
 }
 
@@ -136,6 +137,15 @@ func (f *ELB) DescribeLoadBalancers(ctx context.Context, in *elb.DescribeLoadBal
 		return f.DescribeLoadBalancersFunc(ctx, in)
 	}
 	return &elb.DescribeLoadBalancersOutput{}, nil
+}
+
+func (f *ELB) DescribeTags(ctx context.Context, in *elb.DescribeTagsInput,
+	_ ...func(*elb.Options)) (*elb.DescribeTagsOutput, error) {
+	f.Calls = append(f.Calls, "DescribeTags")
+	if f.DescribeTagsFunc != nil {
+		return f.DescribeTagsFunc(ctx, in)
+	}
+	return &elb.DescribeTagsOutput{}, nil
 }
 
 // RDS is a fake awsapi.RDSAPI.

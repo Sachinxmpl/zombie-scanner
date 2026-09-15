@@ -133,8 +133,7 @@ func toLoadBalancer(lb elbtypes.LoadBalancer) zombie.LoadBalancer {
 		Type:         string(lb.Type),
 		MetricSuffix: metricSuffix(arn),
 		CreatedAt:    aws.ToTime(lb.CreatedTime),
-		// DescribeLoadBalancers returns no tags, DescribeTags is a separate
-		// call - deferred to v0.2 with the ignore rules
+		// DescribeLoadBalancers returns no tags, DescribeTags is a separate call
 	}
 }
 
@@ -175,6 +174,19 @@ func toDBInstance(db rdstypes.DBInstance) zombie.DBInstance {
 
 // RDS tag type differ from EC2, (toTags doesn't work here)
 func toRDSTags(tags []rdstypes.Tag) map[string]string {
+	if len(tags) == 0 {
+		return nil
+	}
+	m := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if k := aws.ToString(t.Key); k != "" {
+			m[k] = aws.ToString(t.Value)
+		}
+	}
+	return m
+}
+
+func toELBTags(tags []elbtypes.Tag) map[string]string {
 	if len(tags) == 0 {
 		return nil
 	}

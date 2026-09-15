@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Sachinxmpl/zombie-scanner/detect"
+	"github.com/Sachinxmpl/zombie-scanner/filter"
 )
 
 // holds flag values for one command invocation
@@ -33,6 +34,9 @@ type options struct {
 	LogLevel    string
 
 	Concurrency int
+
+	KeepTag   string
+	NoKeepTag bool
 
 	version, commit string
 }
@@ -84,6 +88,9 @@ It never creates, modifies, or deletes anything.`,
 	pf.StringVar(&o.LogLevel, "log-level", "info", "log level: debug|info|warn|error")
 
 	pf.IntVar(&o.Concurrency, "concurrency", 8, "regions to scan in parallel")
+
+	pf.StringVar(&o.KeepTag, "keep-tag", filter.DefaultKeepTag, "hide resources carrying this tag key")
+	pf.BoolVar(&o.NoKeepTag, "no-keep-tag", false, "ignore the keep tag and show all findings")
 
 	// --region and --all-regions are mutually exclusive
 	root.MarkFlagsMutuallyExclusive("region", "all-regions")
@@ -146,6 +153,7 @@ func applyEnv(cmd *cobra.Command) error {
 		"snapshot-age-days": "ZOMBIE_SCANNER_SNAPSHOT_AGE_DAYS",
 		"stopped-days":      "ZOMBIE_SCANNER_STOPPED_DAYS",
 		"idle-window-days":  "ZOMBIE_SCANNER_IDLE_WINDOW_DAYS",
+		"keep-tag":          "ZOMBIE_SCANNER_KEEP_TAG",
 	} {
 		if cmd.Flags().Changed(flagName) {
 			continue

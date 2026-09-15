@@ -107,7 +107,7 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 
 			e.log().Debug("region scanned", "region", region, "findings", len(found), "errors", len(errs), "took", time.Since(start))
 
-			// nil -> returning error would cancle gctx
+			// nil -> returning error would cancel gctx
 			return nil
 		})
 	}
@@ -200,6 +200,9 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			lbs, err := collect.LoadBalancers(ctx, clients.ELB)
 			inv.LoadBalancers = lbs
 			return err
+		}},
+		{"elasticloadbalancing", "DescribeTags", func(ctx context.Context, inv *zombie.Inventory) error {
+			return collect.LoadBalancerTags(ctx, clients.ELB, inv.LoadBalancers)
 		}},
 		// must run after every collector that it builds queries from
 		{"cloudwatch", "GetMetricData", func(ctx context.Context, inv *zombie.Inventory) error {
