@@ -1,0 +1,6 @@
+region: ap-south-1
+min-cost: "0"
+stopped-days: 0
+ignore:
+  - id: i-0d8a3c2f4f2feb497
+    reason: testing config file

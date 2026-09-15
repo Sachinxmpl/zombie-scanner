@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Sachinxmpl/zombie-scanner/config"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
 	"github.com/Sachinxmpl/zombie-scanner/filter"
 )
@@ -37,6 +38,11 @@ type options struct {
 
 	KeepTag   string
 	NoKeepTag bool
+
+	ConfigPath string
+	NoConfig   bool
+
+	config *config.File
 
 	version, commit string
 }
@@ -92,11 +98,17 @@ It never creates, modifies, or deletes anything.`,
 	pf.StringVar(&o.KeepTag, "keep-tag", filter.DefaultKeepTag, "hide resources carrying this tag key")
 	pf.BoolVar(&o.NoKeepTag, "no-keep-tag", false, "ignore the keep tag and show all findings")
 
+	pf.StringVar(&o.ConfigPath, "config", "", "config file (default: ./"+config.FileName+", then $HOME)")
+	pf.BoolVar(&o.NoConfig, "no-config", false, "ignore any config file")
+
 	// --region and --all-regions are mutually exclusive
 	root.MarkFlagsMutuallyExclusive("region", "all-regions")
 
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		return applyEnv(cmd)
+		if err := applyEnv(cmd); err != nil {
+			return err
+		}
+		return applyConfig(cmd, &o)
 	}
 
 	root.AddCommand(
@@ -142,7 +154,6 @@ func newVersionCommand(version, commit string) *cobra.Command {
 }
 
 // flag > environment > default
-// Todo -> config file
 func applyEnv(cmd *cobra.Command) error {
 	for flagName, envName := range map[string]string{
 		"region":            "ZOMBIE_SCANNER_REGION",
@@ -166,5 +177,53 @@ func applyEnv(cmd *cobra.Command) error {
 			return fmt.Errorf("%s: %w", envName, err)
 		}
 	}
+	return nil
+}
+
+// flag > environment > config file > default.
+// Each tier skips a flag that an earlier tier already set
+func applyConfig(cmd *cobra.Command, o *options) error {
+	if o.NoConfig {
+		return nil
+	}
+
+	var (
+		f   *config.File
+		err error
+	)
+	if o.ConfigPath != "" {
+		f, err = config.Load(o.ConfigPath)
+	} else {
+		f, err = config.Discover()
+	}
+	if err != nil {
+		return err
+	}
+	if f == nil {
+		return nil
+	}
+
+	known := func(name string) bool {
+		for _, d := range detect.All() {
+			if d.Name() == name {
+				return true
+			}
+		}
+		return false
+	}
+	if err := filter.ValidateIgnoreRules(f.Ignore, known); err != nil {
+		return fmt.Errorf("config %s: %w", f.Path, err)
+	}
+
+	for flagName, value := range f.FlagValues() {
+		if cmd.Flags().Changed(flagName) {
+			continue
+		}
+		if err := cmd.Flags().Set(flagName, value); err != nil {
+			return fmt.Errorf("config %s: %s: %w", f.Path, flagName, err)
+		}
+	}
+
+	o.config = f
 	return nil
 }

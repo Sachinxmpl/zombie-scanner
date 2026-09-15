@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
+	"github.com/Sachinxmpl/zombie-scanner/config"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
 	"github.com/Sachinxmpl/zombie-scanner/filter"
 	"github.com/Sachinxmpl/zombie-scanner/render"
@@ -57,6 +58,11 @@ func runScan(cmd *cobra.Command, o options) error {
 			return err
 		}
 		filters = append(filters, filter.MinConfidence{Level: level})
+	}
+	var ignore *filter.IgnoreRules
+	if o.config != nil && len(o.config.Ignore) > 0 {
+		ignore = filter.NewIgnoreRules(o.config.Ignore)
+		filters = append(filters, ignore)
 	}
 
 	logger, err := newLogger(cmd.ErrOrStderr(), o.LogLevel, o.Verbose)
@@ -110,6 +116,7 @@ func runScan(cmd *cobra.Command, o options) error {
 	}
 
 	render.Errors(cmd.ErrOrStderr(), report, o.Verbose)
+	warnUnmatched(cmd.ErrOrStderr(), ignore, o.config)
 
 	if o.Strict && len(report.Errors) > 0 {
 		return fmt.Errorf("%d check(s) could not run and --strict is set", len(report.Errors))
@@ -144,4 +151,20 @@ func newLogger(w io.Writer, level string, verbose bool) (*slog.Logger, error) {
 		return nil, fmt.Errorf("unknown log level %q (want debug, info, warn or error)", level)
 	}
 	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: l})), nil
+}
+
+// Warned a rule that matched nothing is a typo or a resource somebody already deleted
+func warnUnmatched(w io.Writer, ignore *filter.IgnoreRules, cfg *config.File) {
+	if ignore == nil {
+		return
+	}
+	stale := ignore.Unmatched()
+	if len(stale) == 0 {
+		return
+	}
+
+	fmt.Fprintf(w, "\n%d ignore rule(s) in %s matched nothing:\n", len(stale), cfg.Path)
+	for _, r := range stale {
+		fmt.Fprintf(w, "  %s  (%s)\n", r, r.Reason)
+	}
 }
