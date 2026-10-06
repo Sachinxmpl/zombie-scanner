@@ -45,6 +45,8 @@ type options struct {
 	config *config.File
 
 	version, commit string
+
+	TFState []string
 }
 
 // builds the command tree
@@ -100,6 +102,9 @@ It never creates, modifies, or deletes anything.`,
 
 	pf.StringVar(&o.ConfigPath, "config", "", "config file (default: ./"+config.FileName+", then $HOME)")
 	pf.BoolVar(&o.NoConfig, "no-config", false, "ignore any config file")
+
+	pf.StringSliceVar(&o.TFState, "tf-state", nil,
+		"Terraform state file or directory; hides everything Terraform already manages")
 
 	// --region and --all-regions are mutually exclusive
 	root.MarkFlagsMutuallyExclusive("region", "all-regions")
