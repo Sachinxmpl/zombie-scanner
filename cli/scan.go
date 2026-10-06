@@ -13,6 +13,7 @@ import (
 	"github.com/Sachinxmpl/zombie-scanner/filter"
 	"github.com/Sachinxmpl/zombie-scanner/render"
 	"github.com/Sachinxmpl/zombie-scanner/scan"
+	"github.com/Sachinxmpl/zombie-scanner/tfstate"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
 
@@ -46,6 +47,18 @@ func runScan(cmd *cobra.Command, o options) error {
 	}
 
 	filters := []filter.Filter{}
+
+	var unmanaged *filter.Unmanaged
+	if len(o.TFState) > 0 {
+		managed, err := tfstate.Load(o.TFState)
+		if err != nil {
+			return err
+		}
+		unmanaged = &filter.Unmanaged{Managed: managed}
+		filters = append(filters, unmanaged)
+		logTFState(cmd.ErrOrStderr(), managed)
+	}
+
 	if o.MinCost > 0 {
 		filters = append(filters, filter.MinCost{USD: o.MinCost})
 	}
@@ -166,5 +179,12 @@ func warnUnmatched(w io.Writer, ignore *filter.IgnoreRules, cfg *config.File) {
 	fmt.Fprintf(w, "\n%d ignore rule(s) in %s matched nothing:\n", len(stale), cfg.Path)
 	for _, r := range stale {
 		fmt.Fprintf(w, "  %s  (%s)\n", r, r.Reason)
+	}
+}
+
+func logTFState(w io.Writer, m *tfstate.Managed) {
+	if m.Len() == 0 {
+		fmt.Fprintf(w, "warning: %d state file(s) contain no managed resources; --tf-state filtered nothing\n",
+			len(m.Files()))
 	}
 }
