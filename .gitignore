@@ -13,3 +13,6 @@ zombie-scanner
 
 coverage.out
 coverage.html
+
+*.tfstate
+*.tfstate.*

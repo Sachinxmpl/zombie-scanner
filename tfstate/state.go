@@ -58,7 +58,7 @@ func (m *Managed) read(r io.Reader) error {
 					continue
 				}
 				var v string
-				if json.Unmarshal(raw, &v) != nil && v != "" {
+				if json.Unmarshal(raw, &v) == nil && v != "" {
 					m.ids[v] = true
 				}
 			}
