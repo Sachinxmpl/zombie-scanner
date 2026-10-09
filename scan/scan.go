@@ -88,7 +88,7 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 		if err != nil {
 			preErrs = append(
 				preErrs,
-				newScanError("", "", "sts", "GetcallerIdentity", err),
+				newScanError("", "", "sts", "GetCallerIdentity", err),
 			)
 			continue
 		}
@@ -123,11 +123,12 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 	var (
 		mu       sync.Mutex
 		findings []zombie.Finding
-		scanErrs []zombie.ScanError
+		scanErrs = preErrs
 		filtered = map[string]int{}
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
+	// one budget for accounts x regions, not per account
 	g.SetLimit(e.concurrency())
 
 	for _, t := range targets {

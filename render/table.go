@@ -43,8 +43,12 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 		zombie.Low:    style(color, "245"),
 	}
 
-	fmt.Fprintf(w, "%s\n\n", dim.Render(fmt.Sprintf("Account %s · %s · scanned %s",
-		r.AccountID, strings.Join(r.Regions, ", "),
+	who := "Account " + r.AccountID
+	if len(r.Accounts) > 1 {
+		who = fmt.Sprintf("%d accounts", len(r.Accounts))
+	}
+	fmt.Fprintf(w, "%s\n\n", dim.Render(fmt.Sprintf("%s · %s · scanned %s",
+		who, strings.Join(r.Regions, ", "),
 		r.ScannedAt.Format("2006-01-02 15:04 MST"))))
 
 	if len(r.Findings) == 0 {
@@ -57,14 +61,23 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 		return nil
 	}
 
+	multi := len(r.Accounts) > 1
+	acctW := 0
+	acctHead, acctPad := "", ""
+	if multi {
+		acctW = 12
+		acctHead = fmt.Sprintf("%-*s ", acctW, "ACCOUNT")
+		acctPad = strings.Repeat(" ", acctW+1)
+	}
+
 	// REASON takes whatever width is left
-	reasonW := width - (idW + typeW + regW + confW + costW + 5)
+	reasonW := width - (idW + typeW + regW + confW + costW + acctW + 5)
 	if reasonW < 20 {
 		reasonW = 20
 	}
 
-	fmt.Fprintln(w, head.Render(fmt.Sprintf("%-*s %-*s %-*s %-*s %-*s %s",
-		idW, "RESOURCE", typeW, "TYPE", regW, "REGION",
+	fmt.Fprintln(w, head.Render(fmt.Sprintf("%-*s %s%-*s %-*s %-*s %-*s %s",
+		idW, "RESOURCE", acctHead, typeW, "TYPE", regW, "REGION",
 		confW, "CONF", costW, "~$/MO", "REASON")))
 
 	for _, f := range r.Findings {
@@ -74,8 +87,13 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 			styled = s.Render(plain)
 		}
 
-		fmt.Fprintf(w, "%-*s %-*s %-*s %s %-*s %s\n",
-			idW, elide(f.ResourceID, idW),
+		acct := ""
+		if multi {
+			acct = fmt.Sprintf("%-*s ", acctW, truncate(f.AccountID, acctW))
+		}
+
+		fmt.Fprintf(w, "%-*s %s%-*s %-*s %s %-*s %s\n",
+			idW, elide(f.ResourceID, idW), acct,
 			typeW, truncate(f.ResourceType, typeW),
 			regW, truncate(f.Region, regW),
 			pad(styled, plain, confW),
@@ -83,7 +101,7 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 			truncate(f.Reason, reasonW))
 
 		if o.Verbose && f.CostBasis != "" {
-			fmt.Fprintf(w, "%-*s %s\n", idW, "", dim.Render(f.CostBasis))
+			fmt.Fprintf(w, "%-*s %s%s\n", idW, "", acctPad, dim.Render(f.CostBasis))
 		}
 	}
 
@@ -108,8 +126,12 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 
 	if verbose {
 		for _, e := range r.Errors {
-			fmt.Fprintf(w, "warning: %s:%s in %s: %s (%s)\n",
-				e.Service, e.Operation, e.Region, e.Message, e.Kind)
+			at := ""
+			if e.Region != "" {
+				at = " in " + e.Region
+			}
+			fmt.Fprintf(w, "warning: %s:%s%s: %s (%s)\n",
+				e.Service, e.Operation, at, e.Message, e.Kind)
 		}
 	}
 
@@ -132,7 +154,9 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 			groups[k] = g
 			order = append(order, k)
 		}
-		g.regions = append(g.regions, e.Region)
+		if e.Region != "" {
+			g.regions = append(g.regions, e.Region)
+		}
 	}
 
 	fmt.Fprintf(w, "\n! %d check%s skipped\n", len(r.Errors), plural(len(r.Errors)))
@@ -143,13 +167,13 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 		switch g.kind {
 		case zombie.KindAccessDenied:
 			denied = true
-			fmt.Fprintf(w, "  missing permission: %s (%s)\n", g.action, regionList(g.regions))
+			fmt.Fprintf(w, "  missing permission: %s%s\n", g.action, where(g.regions))
 		case zombie.KindThrottled:
-			fmt.Fprintf(w, "  throttled: %s (%s)\n", g.action, regionList(g.regions))
+			fmt.Fprintf(w, "  throttled: %s%s\n", g.action, where(g.regions))
 		case zombie.KindUnsupported:
-			fmt.Fprintf(w, "  not available in %s: %s\n", regionList(g.regions), g.action)
+			fmt.Fprintf(w, "  not available%s: %s\n", where(g.regions), g.action)
 		default:
-			fmt.Fprintf(w, "  %s (%s): %s\n", g.action, regionList(g.regions), g.message)
+			fmt.Fprintf(w, "  %s%s: %s\n", g.action, where(g.regions), g.message)
 		}
 	}
 
@@ -160,6 +184,14 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 	if !verbose {
 		fmt.Fprintln(w, "  run with -v for detail")
 	}
+}
+
+// an account-level failure has no region
+func where(regions []string) string {
+	if len(regions) == 0 {
+		return ""
+	}
+	return " (" + regionList(regions) + ")"
 }
 
 func regionList(regions []string) string {

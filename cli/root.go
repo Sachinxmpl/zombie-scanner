@@ -108,8 +108,8 @@ It never creates, modifies, or deletes anything.`,
 	pf.StringSliceVar(&o.TFState, "tf-state", nil,
 		"Terraform state file or directory; hides everything Terraform already manages")
 
-	pf.StringSliceVar(&o.Accounts, "accounts", nil, "AWS account IDs to scan (default: all accounts in the profile)")
-	pf.StringVar(&o.RoleName, "role-name", "ZombieScannerReadOnly", "AWS role name to assume in each account (default: none)")
+	pf.StringSliceVar(&o.Accounts, "accounts", nil, "also scan these account IDs by assuming --role-name in each")
+	pf.StringVar(&o.RoleName, "role-name", "ZombieScannerReadOnly", "role to assume in each --accounts entry")
 
 	// --region and --all-regions are mutually exclusive
 	root.MarkFlagsMutuallyExclusive("region", "all-regions")
