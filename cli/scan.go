@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
+	"regexp"
 
 	"github.com/spf13/cobra"
 
@@ -91,15 +93,12 @@ func runScan(cmd *cobra.Command, o options) error {
 	// nothing above here touches the network, i.e a bad flag never costs a
 	// round trip and never reports itself as a credentials problem
 
-	aws, err := awsapi.New(ctx, awsapi.Options{
-		Profile: o.Profile,
-		Region:  o.Region,
-	})
+	accounts, err := buildFactories(ctx, o)
 	if err != nil {
 		return err
 	}
 
-	eng := &scan.Engine{AWS: aws, Cfg: cfg, Filters: filters, Log: logger, Concurrency: o.Concurrency}
+	eng := &scan.Engine{Accounts: accounts, Cfg: cfg, Filters: filters, Log: logger, Concurrency: o.Concurrency}
 
 	opts := scan.Options{Only: o.Only, Skip: o.Skip, AllRegions: o.AllRegions}
 	if o.Region != "" {
@@ -181,6 +180,33 @@ func warnUnmatched(w io.Writer, ignore *filter.IgnoreRules, cfg *config.File) {
 		fmt.Fprintf(w, "  %s  (%s)\n", r, r.Reason)
 	}
 }
+
+func buildFactories(ctx context.Context, o options) ([]awsapi.Factory, error) {
+	base := awsapi.Options{Profile: o.Profile, Region: o.Region}
+
+	self, err := awsapi.New(ctx, base)
+	if err != nil {
+		return nil, err
+	}
+	out := []awsapi.Factory{self}
+
+	for _, id := range o.Accounts {
+		if !accountID.MatchString(id) {
+			return nil, fmt.Errorf("--accounts: %q is not a 12-digit AWS account ID", id)
+		}
+		opts := base
+		opts.AssumeRoleARN = fmt.Sprintf("arn:aws:iam::%s:role/%s", id, o.RoleName)
+
+		f, err := awsapi.New(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
+var accountID = regexp.MustCompile(`^[0-9]{12}$`)
 
 func logTFState(w io.Writer, m *tfstate.Managed) {
 	if m.Len() == 0 {
