@@ -171,6 +171,7 @@ func (f *ELB) DescribeTags(ctx context.Context, in *elb.DescribeTagsInput,
 type RDS struct {
 	DescribeDBInstancesFunc func(context.Context, *rds.DescribeDBInstancesInput) (*rds.DescribeDBInstancesOutput, error)
 	recorder
+	DescribeDBSnapshotsFunc func(context.Context, *rds.DescribeDBSnapshotsInput) (*rds.DescribeDBSnapshotsOutput, error)
 }
 
 func (f *RDS) DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstancesInput,
@@ -180,6 +181,15 @@ func (f *RDS) DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstanc
 		return f.DescribeDBInstancesFunc(ctx, in)
 	}
 	return &rds.DescribeDBInstancesOutput{}, nil
+}
+
+func (f *RDS) DescribeDBSnapshots(ctx context.Context, in *rds.DescribeDBSnapshotsInput,
+	_ ...func(*rds.Options)) (*rds.DescribeDBSnapshotsOutput, error) {
+	f.record("DescribeDBSnapshots")
+	if f.DescribeDBSnapshotsFunc != nil {
+		return f.DescribeDBSnapshotsFunc(ctx, in)
+	}
+	return &rds.DescribeDBSnapshotsOutput{}, nil
 }
 
 type EFS struct {

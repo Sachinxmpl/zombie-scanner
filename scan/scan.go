@@ -235,6 +235,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 			inv.NATGateways = n
 			return err
 		}},
+		{"rds", "DescribeDBSnapshots", func(ctx context.Context, inv *zombie.Inventory) error {
+			s, err := collect.DBSnapshots(ctx, clients.RDS)
+			inv.DBSnapshots = s
+			return err
+		}},
 		{"elasticfilesystem", "DescribeFileSystems", func(ctx context.Context, inv *zombie.Inventory) error {
 			fs, err := collect.FileSystems(ctx, clients.EFS)
 			inv.FileSystems = fs

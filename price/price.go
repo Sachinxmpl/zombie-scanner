@@ -34,6 +34,7 @@ type table struct {
 	ElasticIPMonth        float64            `json:"elastic_ip_month"`
 	NATGatewayMonth       float64            `json:"nat_gateway_month"`
 	ALBMonth              float64            `json:"alb_month"`
+	RDSBackupPerGiBMonth  float64            `json:"rds_backup_per_gib_month"`
 	EFSPerGiBMonth        map[string]float64 `json:"efs_per_gib_month"`
 
 	RegionMultipliers       map[string]float64 `json:"region_multipliers"`
@@ -63,6 +64,7 @@ type Rates struct {
 	ElasticIPMonth        float64
 	NATGatewayMonth       float64
 	ALBMonth              float64
+	RDSBackupPerGiBMonth  float64
 	EFSPerGiBMonth        map[string]float64
 
 	Region           string
@@ -83,6 +85,7 @@ func For(region string) Rates {
 		ElasticIPMonth:        base.ElasticIPMonth,
 		NATGatewayMonth:       base.NATGatewayMonth,
 		ALBMonth:              base.ALBMonth,
+		RDSBackupPerGiBMonth:  base.RDSBackupPerGiBMonth,
 		EFSPerGiBMonth:        base.EFSPerGiBMonth,
 		Region:                region,
 		RegionMultiplier:      mult,
@@ -99,6 +102,7 @@ var pricers = map[string]Pricer{
 	"nat-gateway":    priceNATGateway,
 	"alb":            priceALB,
 	"rds-instance":   priceRDSInstance,
+	"rds-snapshot":   priceRDSSnapshot,
 	"efs-filesystem": priceEFS,
 }
 
@@ -287,6 +291,26 @@ func priceALB(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = r.ALBMonth * r.RegionMultiplier
 	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes LCU",
 		r.ALBMonth, r.RegionMultiplier, r.Region)
+}
+
+// Backup storage bills on what the snapshot occupies. When AWS did not report
+// that, the instance's allocated storage is an upper bound.
+func priceRDSSnapshot(f *zombie.Finding, r Rates) {
+	bytes, err := strconv.ParseInt(f.Metadata["size_bytes"], 10, 64)
+	if err != nil || bytes <= 0 {
+		f.CostBasis = "unknown snapshot size not priced"
+		return
+	}
+	gib := float64(bytes) / (1 << 30)
+
+	f.MonthlyCost = gib * r.RDSBackupPerGiBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("%.2f GiB $%.3f/GiB-mo x %.2f (%s)",
+		gib, r.RDSBackupPerGiBMonth, r.RegionMultiplier, r.Region)
+
+	if f.Metadata["size_is_instance_allocation"] == "true" {
+		f.CostBasis += " [upper bound: snapshot size unreported, using the instance allocation]"
+		f.Meta("price_upper_bound", "true")
+	}
 }
 
 func priceEFS(f *zombie.Finding, r Rates) {

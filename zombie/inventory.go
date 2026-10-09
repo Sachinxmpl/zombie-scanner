@@ -18,6 +18,7 @@ type Inventory struct {
 	NATGateways   []NATGateway
 	LoadBalancers []LoadBalancer
 	DBInstances   []DBInstance
+	DBSnapshots   []DBSnapshot
 	FileSystems   []FileSystem
 
 	// operations that didn't complete, "service:Operation"
@@ -43,6 +44,19 @@ type DBInstance struct {
 
 	CreatedAt time.Time
 	Tags      map[string]string
+}
+
+type DBSnapshot struct {
+	ID          string
+	ARN         string
+	DBInstance  string
+	Type        string // "manual", "automated"
+	Engine      string // "postgres", "mysql", "aurora-postgresql"
+	Status      string
+	StorageGiB  int32 // size of the source DB instance at the time of snapshot creation
+	ActualBytes int64 // size of the snapshot itself, 0 when AWS does not report it
+	CreatedAt   time.Time
+	Tags        map[string]string
 }
 
 type Volume struct {

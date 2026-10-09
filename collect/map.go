@@ -173,6 +173,26 @@ func toDBInstance(db rdstypes.DBInstance) zombie.DBInstance {
 	return out
 }
 
+func toDBSnapshot(s rdstypes.DBSnapshot) zombie.DBSnapshot {
+	out := zombie.DBSnapshot{
+		ID:         aws.ToString(s.DBSnapshotIdentifier),
+		ARN:        aws.ToString(s.DBSnapshotArn),
+		DBInstance: aws.ToString(s.DBInstanceIdentifier),
+		Type:       aws.ToString(s.SnapshotType),
+		Engine:     aws.ToString(s.Engine),
+		Status:     aws.ToString(s.Status),
+		StorageGiB: aws.ToInt32(s.AllocatedStorage),
+		CreatedAt:  aws.ToTime(s.SnapshotCreateTime),
+		Tags:       toRDSTags(s.TagList),
+	}
+	// what the snapshot really occupies, which is what backup storage bills.
+	// Missing on older snapshots, so the detector falls back to the instance size.
+	if b := aws.ToInt64(s.FullSnapshotSizeInBytes); b > 0 {
+		out.ActualBytes = b
+	}
+	return out
+}
+
 // RDS tag type differ from EC2, (toTags doesn't work here)
 func toRDSTags(tags []rdstypes.Tag) map[string]string {
 	if len(tags) == 0 {
