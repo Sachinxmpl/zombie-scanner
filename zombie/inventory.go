@@ -111,11 +111,12 @@ type FileSystem struct {
 	Name         string
 	State        string
 	MountTargets int32
-	StandardGiB  int32
-	IAGiB        int32
-	ArchiveGiB   int32
-	CreatedAt    time.Time
-	Tags         map[string]string
+	// bytes -> most file system are under 1GiB 
+	StandardBytes int64
+	IABytes       int64
+	ArchiveBytes  int64
+	CreatedAt     time.Time
+	Tags          map[string]string
 }
 
 func (inv Inventory) AgeDays(t time.Time) int {

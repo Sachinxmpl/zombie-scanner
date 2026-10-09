@@ -294,16 +294,17 @@ func priceEFS(f *zombie.Finding, r Rates) {
 	parts := make([]string, 0, 3)
 
 	for _, tier := range []string{"standard", "ia", "archive"} {
-		gib, err := strconv.Atoi(f.Metadata[tier+"_gib"])
-		if err != nil || gib <= 0 {
+		bytes, err := strconv.ParseInt(f.Metadata[tier+"_bytes"], 10, 64)
+		if err != nil || bytes <= 0 {
 			continue
 		}
+		gib := float64(bytes) / (1 << 30)
 		rate, known := r.EFSPerGiBMonth[tier]
 		if !known {
 			continue
 		}
-		total += float64(gib) * rate * r.RegionMultiplier
-		parts = append(parts, fmt.Sprintf("%d GiB %s $%.3f/GiB-mo", gib, tier, rate))
+		total += gib * rate * r.RegionMultiplier
+		parts = append(parts, fmt.Sprintf("%.2f GiB %s $%.3f/GiB-mo", gib, tier, rate))
 	}
 
 	if len(parts) == 0 {

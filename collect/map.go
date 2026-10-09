@@ -211,21 +211,17 @@ func toFileSystem(fs efstypes.FileSystemDescription) zombie.FileSystem {
 		Tags:         toEFSTags(fs.Tags),
 	}
 	if s := fs.SizeInBytes; s != nil {
-		out.StandardGiB = gib(aws.ToInt64(s.ValueInStandard))
-		out.IAGiB = gib(aws.ToInt64(s.ValueInIA))
-		out.ArchiveGiB = gib(aws.ToInt64(s.ValueInArchive))
+		out.StandardBytes = aws.ToInt64(s.ValueInStandard)
+		out.IABytes = aws.ToInt64(s.ValueInIA)
+		out.ArchiveBytes = aws.ToInt64(s.ValueInArchive)
 
 		// older responses report only the total
 		//  count it as standard rather than report a file system holding data as holding none
-		if out.StandardGiB+out.IAGiB+out.ArchiveGiB == 0 {
-			out.StandardGiB = gib(s.Value)
+		if out.StandardBytes+out.IABytes+out.ArchiveBytes == 0 {
+			out.StandardBytes = s.Value
 		}
 	}
 	return out
-}
-
-func gib(bytes int64) int32 {
-	return int32(bytes / (1 << 30))
 }
 
 func toEFSTags(tags []efstypes.Tag) map[string]string {
