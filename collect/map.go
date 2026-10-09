@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	rdstypes "github.com/aws/aws-sdk-go-v2/service/rds/types"
 
@@ -187,6 +188,47 @@ func toRDSTags(tags []rdstypes.Tag) map[string]string {
 }
 
 func toELBTags(tags []elbtypes.Tag) map[string]string {
+	if len(tags) == 0 {
+		return nil
+	}
+	m := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if k := aws.ToString(t.Key); k != "" {
+			m[k] = aws.ToString(t.Value)
+		}
+	}
+	return m
+}
+
+func toFileSystem(fs efstypes.FileSystemDescription) zombie.FileSystem {
+	out := zombie.FileSystem{
+		ID:           aws.ToString(fs.FileSystemId),
+		ARN:          aws.ToString(fs.FileSystemArn),
+		Name:         aws.ToString(fs.Name),
+		State:        string(fs.LifeCycleState),
+		MountTargets: fs.NumberOfMountTargets,
+		CreatedAt:    aws.ToTime(fs.CreationTime),
+		Tags:         toEFSTags(fs.Tags),
+	}
+	if s := fs.SizeInBytes; s != nil {
+		out.StandardGiB = gib(aws.ToInt64(s.ValueInStandard))
+		out.IAGiB = gib(aws.ToInt64(s.ValueInIA))
+		out.ArchiveGiB = gib(aws.ToInt64(s.ValueInArchive))
+
+		// older responses report only the total
+		//  count it as standard rather than report a file system holding data as holding none
+		if out.StandardGiB+out.IAGiB+out.ArchiveGiB == 0 {
+			out.StandardGiB = gib(s.Value)
+		}
+	}
+	return out
+}
+
+func gib(bytes int64) int32 {
+	return int32(bytes / (1 << 30))
+}
+
+func toEFSTags(tags []efstypes.Tag) map[string]string {
 	if len(tags) == 0 {
 		return nil
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -41,16 +42,6 @@ type RDSAPI interface {
 	DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstancesInput, opts ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error)
 }
 
-// Compile time proof that real SDK clients satisfy these interfaces
-// SDK upgrades -> methods changed -> build breaks here
-var (
-	_ EC2API        = (*ec2.Client)(nil)
-	_ STSAPI        = (*sts.Client)(nil)
-	_ CloudWatchAPI = (*cloudwatch.Client)(nil)
-	_ ELBAPI        = (*elb.Client)(nil)
-	_ RDSAPI        = (*rds.Client)(nil)
-)
-
 // one regions's worth of AWS clients
 // Only the ELBv2 operations this tool uses. Classic load balancers use a
 // different API and are out of scope.
@@ -59,12 +50,28 @@ type ELBAPI interface {
 	DescribeTags(ctx context.Context, in *elb.DescribeTagsInput, opts ...func(*elb.Options)) (*elb.DescribeTagsOutput, error)
 }
 
+type EFSAPI interface {
+	DescribeFileSystems(ctx context.Context, in *efs.DescribeFileSystemsInput, opts ...func(*efs.Options)) (*efs.DescribeFileSystemsOutput, error)
+}
+
 type Clients struct {
 	EC2 EC2API
 	CW  CloudWatchAPI
 	ELB ELBAPI
 	RDS RDSAPI
+	EFS EFSAPI
 }
+
+// Compile time proof that real SDK clients satisfy these interfaces
+// SDK upgrades -> methods changed -> build breaks here
+var (
+	_ EC2API        = (*ec2.Client)(nil)
+	_ STSAPI        = (*sts.Client)(nil)
+	_ CloudWatchAPI = (*cloudwatch.Client)(nil)
+	_ ELBAPI        = (*elb.Client)(nil)
+	_ RDSAPI        = (*rds.Client)(nil)
+	_ EFSAPI        = (*efs.Client)(nil)
+)
 
 type Factory interface {
 	// returns clients bound to one region

@@ -18,6 +18,7 @@ type Inventory struct {
 	NATGateways   []NATGateway
 	LoadBalancers []LoadBalancer
 	DBInstances   []DBInstance
+	FileSystems   []FileSystem
 
 	// operations that didn't complete, "service:Operation"
 	Failed map[string]bool
@@ -100,6 +101,19 @@ type LoadBalancer struct {
 	Name         string
 	Type         string
 	MetricSuffix string
+	CreatedAt    time.Time
+	Tags         map[string]string
+}
+
+type FileSystem struct {
+	ID           string
+	ARN          string
+	Name         string
+	State        string
+	MountTargets int32
+	StandardGiB  int32
+	IAGiB        int32
+	ArchiveGiB   int32
 	CreatedAt    time.Time
 	Tags         map[string]string
 }
