@@ -235,6 +235,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 			inv.NATGateways = n
 			return err
 		}},
+		{"elasticfilesystem", "DescribeFileSystems", func(ctx context.Context, inv *zombie.Inventory) error {
+			fs, err := collect.FileSystems(ctx, clients.EFS)
+			inv.FileSystems = fs
+			return err
+		}},
 		{"elasticloadbalancing", "DescribeLoadBalancers", func(ctx context.Context, inv *zombie.Inventory) error {
 			lbs, err := collect.LoadBalancers(ctx, clients.ELB)
 			inv.LoadBalancers = lbs

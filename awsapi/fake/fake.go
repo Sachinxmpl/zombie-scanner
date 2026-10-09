@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -181,6 +182,20 @@ func (f *RDS) DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstanc
 	return &rds.DescribeDBInstancesOutput{}, nil
 }
 
+type EFS struct {
+	DescribeFileSystemsFunc func(context.Context, *efs.DescribeFileSystemsInput) (*efs.DescribeFileSystemsOutput, error)
+	recorder
+}
+
+func (f *EFS) DescribeFileSystems(ctx context.Context, in *efs.DescribeFileSystemsInput,
+	_ ...func(*efs.Options)) (*efs.DescribeFileSystemsOutput, error) {
+	f.record("DescribeFileSystems")
+	if f.DescribeFileSystemsFunc != nil {
+		return f.DescribeFileSystemsFunc(ctx, in)
+	}
+	return &efs.DescribeFileSystemsOutput{}, nil
+}
+
 // Factory is a fake awsapi.Factory.
 type Factory struct {
 	Clients   awsapi.Clients
@@ -226,4 +241,5 @@ var (
 	_ awsapi.RDSAPI        = (*RDS)(nil)
 	_ awsapi.CloudWatchAPI = (*CloudWatch)(nil)
 	_ awsapi.Factory       = (*Factory)(nil)
+	_ awsapi.EFSAPI        = (*EFS)(nil)
 )

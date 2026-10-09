@@ -12,6 +12,7 @@
         "ec2:DescribeRegions",
         "ec2:DescribeSnapshots",
         "ec2:DescribeVolumes",
+        "elasticfilesystem:DescribeFileSystems",
         "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DescribeTags",
         "rds:DescribeDBInstances",

@@ -49,6 +49,11 @@
     "db.r6g.xlarge": 0.452,
     "db.r6g.2xlarge": 0.904
   },
+  "efs_per_gib_month": {
+    "standard": 0.3,
+    "ia": 0.016,
+    "archive": 0.005
+  },
   "elastic_ip_month": 3.65,
   "nat_gateway_month": 32.85,
   "alb_month": 16.43,

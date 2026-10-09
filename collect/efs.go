@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 )
 
-func Fileystems(ctx context.Context, api awsapi.EFSAPI) ([]zombie.FileSystem, error) {
+func FileSystems(ctx context.Context, api awsapi.EFSAPI) ([]zombie.FileSystem, error) {
 	out := []zombie.FileSystem{}
 
 	p := efs.NewDescribeFileSystemsPaginator(api, &efs.DescribeFileSystemsInput{})

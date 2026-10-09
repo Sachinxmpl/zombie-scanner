@@ -34,6 +34,7 @@ type table struct {
 	ElasticIPMonth        float64            `json:"elastic_ip_month"`
 	NATGatewayMonth       float64            `json:"nat_gateway_month"`
 	ALBMonth              float64            `json:"alb_month"`
+	EFSPerGiBMonth        map[string]float64 `json:"efs_per_gib_month"`
 
 	RegionMultipliers       map[string]float64 `json:"region_multipliers"`
 	DefaultRegionMultiplier float64            `json:"default_region_multiplier"`
@@ -62,6 +63,7 @@ type Rates struct {
 	ElasticIPMonth        float64
 	NATGatewayMonth       float64
 	ALBMonth              float64
+	EFSPerGiBMonth        map[string]float64
 
 	Region           string
 	RegionMultiplier float64
@@ -81,6 +83,7 @@ func For(region string) Rates {
 		ElasticIPMonth:        base.ElasticIPMonth,
 		NATGatewayMonth:       base.NATGatewayMonth,
 		ALBMonth:              base.ALBMonth,
+		EFSPerGiBMonth:        base.EFSPerGiBMonth,
 		Region:                region,
 		RegionMultiplier:      mult,
 	}
@@ -89,13 +92,14 @@ func For(region string) Rates {
 type Pricer func(f *zombie.Finding, r Rates)
 
 var pricers = map[string]Pricer{
-	"ebs-volume":   priceEBSVolume,
-	"elastic-ip":   priceElasticIP,
-	"ebs-snapshot": priceSnapshot,
-	"ec2-instance": priceStoppedInstance,
-	"nat-gateway":  priceNATGateway,
-	"alb":          priceALB,
-	"rds-instance": priceRDSInstance,
+	"ebs-volume":     priceEBSVolume,
+	"elastic-ip":     priceElasticIP,
+	"ebs-snapshot":   priceSnapshot,
+	"ec2-instance":   priceStoppedInstance,
+	"nat-gateway":    priceNATGateway,
+	"alb":            priceALB,
+	"rds-instance":   priceRDSInstance,
+	"efs-filesystem": priceEFS,
 }
 
 // Prices every finding for one region
@@ -283,4 +287,31 @@ func priceALB(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = r.ALBMonth * r.RegionMultiplier
 	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes LCU",
 		r.ALBMonth, r.RegionMultiplier, r.Region)
+}
+
+func priceEFS(f *zombie.Finding, r Rates) {
+	var total float64
+	parts := make([]string, 0, 3)
+
+	for _, tier := range []string{"standard", "ia", "archive"} {
+		gib, err := strconv.Atoi(f.Metadata[tier+"_gib"])
+		if err != nil || gib <= 0 {
+			continue
+		}
+		rate, known := r.EFSPerGiBMonth[tier]
+		if !known {
+			continue
+		}
+		total += float64(gib) * rate * r.RegionMultiplier
+		parts = append(parts, fmt.Sprintf("%d GiB %s $%.3f/GiB-mo", gib, tier, rate))
+	}
+
+	if len(parts) == 0 {
+		f.CostBasis = "unknown file system size not priced"
+		return
+	}
+
+	f.MonthlyCost = total
+	f.CostBasis = fmt.Sprintf("%s x %.2f (%s)",
+		strings.Join(parts, " + "), r.RegionMultiplier, r.Region)
 }
