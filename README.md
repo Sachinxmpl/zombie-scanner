@@ -151,14 +151,16 @@ permissions it needs.
 | -------------------- | ---------- | ---------------------------------------------- | ----------------------- |
 | `ebs-unattached`     | HIGH       | Volumes in state `available`                   | size × per-GiB rate     |
 | `eip-unassociated`   | HIGH       | Elastic IPs attached to nothing                | flat monthly            |
+| `efs-unused`         | HIGH       | File systems with no mount targets             | size × per-tier rate    |
 | `rds-stopped`        | HIGH       | Stopped databases still paying for storage     | allocated GiB × rate    |
 | `instance-stopped`   | MEDIUM     | Stopped instances still paying for their disks | sum of attached volumes |
 | `rds-idle`           | MEDIUM     | Running databases nothing connected to         | class $/hr × 730 + storage |
 | `nat-idle`           | MEDIUM     | NAT gateways below an outbound-bytes floor     | hourly × 730            |
 | `elb-idle`           | MEDIUM     | ALBs below a request-count floor               | hourly × 730            |
 | `snapshot-aged`      | LOW        | Old snapshots that no AMI references           | size × snapshot rate    |
+| `rds-snapshot-aged`  | LOW        | Old manual database snapshots                  | size × backup rate      |
 
-Three are worth calling out.
+A few are worth calling out.
 
 **`rds-stopped`** is the one that costs people the most. Stopping an RDS
 instance stops the compute charge only — allocated storage bills at the full
@@ -173,6 +175,11 @@ charge — the attached EBS volumes keep billing at full price, indefinitely. A
 stopped `t3.large` with a 500 GiB root volume is roughly $50/month that looks
 free in the console.
 
+**`efs-unused`** finds network file systems nothing can reach. A mount target
+is the only way into EFS, so none means no server can read or write it — yet
+every byte still bills, at the priciest storage rate AWS has. Each storage tier
+is priced at its own rate, from the exact sizes AWS reports.
+
 **`rds-idle`** is usually the largest single number in the report, because a
 running database bills for its instance class as well as its storage. When the
 class is one it does not have a rate for, or the engine is Oracle or SQL Server
@@ -184,6 +191,11 @@ where the licence dominates, it reports the storage cost and says in
 anything, because deleting a snapshot an AMI depends on breaks the AMI. If that
 cross-reference cannot be built — a missing permission, say — the check reports
 nothing rather than guessing.
+
+**`rds-snapshot-aged`** looks only at manual snapshots: automated ones expire
+on their own. A manual snapshot stays until someone deletes it, even after its
+database is gone. It is priced on the snapshot's real size; when AWS does not
+report that, it uses the database's size and marks the price as an upper bound.
 
 ## Confidence levels
 
