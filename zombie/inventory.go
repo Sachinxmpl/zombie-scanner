@@ -111,7 +111,7 @@ type FileSystem struct {
 	Name         string
 	State        string
 	MountTargets int32
-	// bytes -> most file system are under 1GiB 
+	// bytes -> most file system are under 1GiB
 	StandardBytes int64
 	IABytes       int64
 	ArchiveBytes  int64
