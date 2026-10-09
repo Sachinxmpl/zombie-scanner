@@ -15,6 +15,7 @@ type Report struct {
 	SchemaVersion string         `json:"schema_version"`
 	Tool          ToolInfo       `json:"tool"`
 	AccountID     string         `json:"account_id"`
+	Accounts      []string       `json:"accounts"`
 	ScannedAt     time.Time      `json:"scanned_at"`
 	Regions       []string       `json:"regions"`
 	Findings      []Finding      `json:"findings"` // never null
@@ -33,6 +34,9 @@ type Summary struct {
 func (r *Report) Normalize() {
 	if r.SchemaVersion == "" {
 		r.SchemaVersion = SchemaVersion
+	}
+	if r.Accounts == nil {
+		r.Accounts = []string{}
 	}
 	if r.Regions == nil {
 		r.Regions = []string{}

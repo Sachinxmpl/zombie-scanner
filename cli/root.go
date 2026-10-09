@@ -46,7 +46,9 @@ type options struct {
 
 	version, commit string
 
-	TFState []string
+	TFState  []string
+	Accounts []string
+	RoleName string
 }
 
 // builds the command tree
@@ -105,6 +107,9 @@ It never creates, modifies, or deletes anything.`,
 
 	pf.StringSliceVar(&o.TFState, "tf-state", nil,
 		"Terraform state file or directory; hides everything Terraform already manages")
+
+	pf.StringSliceVar(&o.Accounts, "accounts", nil, "also scan these account IDs by assuming --role-name in each")
+	pf.StringVar(&o.RoleName, "role-name", "ZombieScannerReadOnly", "role to assume in each --accounts entry")
 
 	// --region and --all-regions are mutually exclusive
 	root.MarkFlagsMutuallyExclusive("region", "all-regions")

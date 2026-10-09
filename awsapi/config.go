@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -18,8 +19,9 @@ import (
 
 // just two, everything else comes from standard aws credential chain
 type Options struct {
-	Profile string // --profile
-	Region  string // --region
+	Profile       string // --profile
+	Region        string // --region
+	AssumeRoleARN string
 }
 
 type factory struct {
@@ -30,6 +32,8 @@ type factory struct {
 
 	accountId string
 	regions   []string
+
+	roleARN string
 }
 
 func New(ctx context.Context, o Options) (Factory, error) {
@@ -57,7 +61,19 @@ func New(ctx context.Context, o Options) (Factory, error) {
 		)
 	}
 
-	return &factory{base: cfg, clients: make(map[string]Clients)}, nil
+	if o.AssumeRoleARN != "" {
+		cfg.Credentials = aws.NewCredentialsCache(
+			stscreds.NewAssumeRoleProvider(
+				sts.NewFromConfig(cfg),
+				o.AssumeRoleARN,
+				func(p *stscreds.AssumeRoleOptions) {
+					p.RoleSessionName = "zombie-scanner"
+				},
+			),
+		)
+	}
+
+	return &factory{base: cfg, roleARN: o.AssumeRoleARN, clients: make(map[string]Clients)}, nil
 }
 
 func (f *factory) BaseRegion() string {
@@ -97,6 +113,9 @@ func (f *factory) AccountID(ctx context.Context) (string, error) {
 
 	out, err := sts.NewFromConfig(f.base).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
+		if f.roleARN != "" {
+			return "", fmt.Errorf("sts:GetCallerIdentity (role %s): %w", f.roleARN, err)
+		}
 		return "", fmt.Errorf("sts:GetCallerIdentity: %w", err)
 	}
 	f.accountId = aws.ToString(out.Account)

@@ -3,6 +3,7 @@ package scan
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -19,10 +20,10 @@ import (
 
 // engine runs a scan
 type Engine struct {
-	AWS     awsapi.Factory
-	Cfg     detect.Config
-	Filters []filter.Filter
-	Log     *slog.Logger
+	Accounts []awsapi.Factory
+	Cfg      detect.Config
+	Filters  []filter.Filter
+	Log      *slog.Logger
 
 	// no of parallel regions scans.
 	Concurrency int
@@ -62,20 +63,57 @@ func (e *Engine) now() time.Time {
 // Performs a complete scan
 // Returns error only for failures that make the whole run meaningless (no crendential, or no discoverable regionss). Everything else lands in a Report.Errrors and scan continues
 func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
-	now := e.now()
-
-	account, err := e.AWS.AccountID(ctx)
-	if err != nil {
-		return zombie.Report{}, err
+	if len(e.Accounts) == 0 {
+		return zombie.Report{}, errors.New("scan: no accounts configured")
 	}
 
-	regions, err := e.resolveRegions(ctx, o)
-	if err != nil {
-		return zombie.Report{}, err
+	now := e.now()
+
+	type target struct {
+		aws     awsapi.Factory
+		account string
+		region  string
+	}
+
+	var (
+		targets  []target
+		accounts []string
+		regions  []string
+		seenReg  = map[string]bool{}
+		preErrs  []zombie.ScanError
+	)
+
+	for _, f := range e.Accounts {
+		account, err := f.AccountID(ctx)
+		if err != nil {
+			preErrs = append(
+				preErrs,
+				newScanError("", "", "sts", "GetCallerIdentity", err),
+			)
+			continue
+		}
+		rs, err := e.resolveRegions(ctx, f, o)
+		if err != nil {
+			preErrs = append(preErrs, newScanError(account, "", "ec2", "DescribeRegions", err))
+			continue
+		}
+		accounts = append(accounts, account)
+		for _, r := range rs {
+			targets = append(targets, target{aws: f, account: account, region: r})
+			if !seenReg[r] {
+				seenReg[r] = true
+				regions = append(regions, r)
+			}
+		}
+	}
+
+	if len(accounts) == 0 {
+		return zombie.Report{}, fmt.Errorf("no account could be scanned: %w", preErrs[0])
 	}
 
 	report := zombie.Report{
-		AccountID: account,
+		AccountID: accounts[0],
+		Accounts:  accounts,
 		ScannedAt: now,
 		Regions:   regions,
 		Findings:  []zombie.Finding{},
@@ -85,17 +123,18 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 	var (
 		mu       sync.Mutex
 		findings []zombie.Finding
-		scanErrs []zombie.ScanError
+		scanErrs = preErrs
 		filtered = map[string]int{}
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
+	// one budget for accounts x regions, not per account
 	g.SetLimit(e.concurrency())
 
-	for _, region := range regions {
+	for _, t := range targets {
 		g.Go(func() error {
 			start := time.Now()
-			found, dropped, errs := e.scanOneRegion(gctx, region, account, now, o)
+			found, dropped, errs := e.scanOneRegion(gctx, t.aws, t.region, t.account, now, o)
 
 			mu.Lock()
 			findings = append(findings, found...)
@@ -105,7 +144,7 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 			}
 			mu.Unlock()
 
-			e.log().Debug("region scanned", "region", region, "findings", len(found), "errors", len(errs), "took", time.Since(start))
+			e.log().Debug("region scanned", "account", t.account, "region", t.region, "findings", len(found), "errors", len(errs), "took", time.Since(start))
 
 			// nil -> returning error would cancel gctx
 			return nil
@@ -119,14 +158,14 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 		report.Filtered = filtered
 	}
 	report.Summary = summarize(report.Findings)
-	report.Normalize() // the never-null guarantee, once, at the end
+	report.Normalize() // the never-null guarantee
 	return report, nil
 }
 
-func (e *Engine) resolveRegions(ctx context.Context, o Options) ([]string, error) {
+func (e *Engine) resolveRegions(ctx context.Context, aws awsapi.Factory, o Options) ([]string, error) {
 	switch {
 	case o.AllRegions:
-		rs, err := e.AWS.Regions(ctx)
+		rs, err := aws.Regions(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +173,7 @@ func (e *Engine) resolveRegions(ctx context.Context, o Options) ([]string, error
 	case len(o.Regions) > 0:
 		return o.Regions, nil
 	default:
-		return []string{e.AWS.BaseRegion()}, nil
+		return []string{aws.BaseRegion()}, nil
 	}
 }
 
@@ -146,12 +185,12 @@ type step struct {
 }
 
 // scans one region, returns errors as data
-func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now time.Time, o Options) ([]zombie.Finding, map[string]int, []zombie.ScanError) {
+func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, account string, now time.Time, o Options) ([]zombie.Finding, map[string]int, []zombie.ScanError) {
 	errs := []zombie.ScanError{}
 
-	clients, err := e.AWS.For(ctx, region)
+	clients, err := aws.For(ctx, region)
 	if err != nil {
-		return nil, nil, append(errs, newScanError(region, "aws", "Clients", err))
+		return nil, nil, append(errs, newScanError(account, region, "aws", "Clients", err))
 	}
 
 	inv := zombie.Inventory{
@@ -256,7 +295,7 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 		if err := s.run(ctx, &inv); err != nil {
 			e.log().Debug("step failed", "op", s.service+":"+s.operation, "region", region, "err", err)
 			inv.Failed[s.service+":"+s.operation] = true
-			errs = append(errs, newScanError(region, s.service, s.operation, err))
+			errs = append(errs, newScanError(account, region, s.service, s.operation, err))
 			continue // degrade, never abort
 		}
 		e.log().Debug("step ok", "op", s.service+":"+s.operation, "took", time.Since(t0))
@@ -267,8 +306,9 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 	return findings, dropped, errs
 }
 
-func newScanError(region, service, operation string, err error) zombie.ScanError {
+func newScanError(account, region, service, operation string, err error) zombie.ScanError {
 	return zombie.ScanError{
+		Account:   account,
 		Region:    region,
 		Service:   service,
 		Operation: operation,

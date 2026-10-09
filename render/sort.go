@@ -20,7 +20,10 @@ func Sort(fs []zombie.Finding) []zombie.Finding {
 		if c := cmp.Compare(a.Region, b.Region); c != 0 {
 			return c
 		}
-		return cmp.Compare(a.ResourceID, b.ResourceID)
+		if c := cmp.Compare(a.ResourceID, b.ResourceID); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.AccountID, b.AccountID)
 	})
 
 	return fs

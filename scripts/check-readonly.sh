@@ -82,4 +82,15 @@ else
   echo "ok no known mutating operation appears in the source"
 fi
 
+#4. stscreds calls sts:AssumeRole internally, so check #2 cannot see it.
+#  It creates nothing in the scanned account, so it is allowed -> only in awsapi/.
+echo "-> credential assumption stays inside awsapi"
+if git ls-files '*.go' | grep -v '^awsapi/' | grep -v '^test/' \
+  | xargs grep -ln 'stscreds' 2>/dev/null; then
+  echo "x a package outside awsapi/ builds credentials"
+  fail=1
+else
+  echo "ok credential assumption stays inside awsapi"
+fi
+
 exit $fail

@@ -5,6 +5,7 @@ package fake
 
 import (
 	"context"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -14,6 +15,23 @@ import (
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
 )
+
+type recorder struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+func (r *recorder) record(op string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, op)
+}
+
+func (r *recorder) Calls() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.calls...)
+}
 
 // EC2 is a fake awsapi.EC2API.
 type EC2 struct {
@@ -27,12 +45,12 @@ type EC2 struct {
 
 	// Calls records operation names in order, so a test can assert that
 	// pagination really made three calls rather than reading one page.
-	Calls []string
+	recorder
 }
 
 func (f *EC2) DescribeInstances(ctx context.Context, in *ec2.DescribeInstancesInput,
 	_ ...func(*ec2.Options)) (*ec2.DescribeInstancesOutput, error) {
-	f.Calls = append(f.Calls, "DescribeInstances")
+	f.record("DescribeInstances")
 	if f.DescribeInstancesFunc != nil {
 		return f.DescribeInstancesFunc(ctx, in)
 	}
@@ -41,7 +59,7 @@ func (f *EC2) DescribeInstances(ctx context.Context, in *ec2.DescribeInstancesIn
 
 func (f *EC2) DescribeVolumes(ctx context.Context, in *ec2.DescribeVolumesInput,
 	_ ...func(*ec2.Options)) (*ec2.DescribeVolumesOutput, error) {
-	f.Calls = append(f.Calls, "DescribeVolumes")
+	f.record("DescribeVolumes")
 	if f.DescribeVolumesFunc != nil {
 		return f.DescribeVolumesFunc(ctx, in)
 	}
@@ -50,7 +68,7 @@ func (f *EC2) DescribeVolumes(ctx context.Context, in *ec2.DescribeVolumesInput,
 
 func (f *EC2) DescribeAddresses(ctx context.Context, in *ec2.DescribeAddressesInput,
 	_ ...func(*ec2.Options)) (*ec2.DescribeAddressesOutput, error) {
-	f.Calls = append(f.Calls, "DescribeAddresses")
+	f.record("DescribeAddresses")
 	if f.DescribeAddressesFunc != nil {
 		return f.DescribeAddressesFunc(ctx, in)
 	}
@@ -59,7 +77,7 @@ func (f *EC2) DescribeAddresses(ctx context.Context, in *ec2.DescribeAddressesIn
 
 func (f *EC2) DescribeRegions(ctx context.Context, in *ec2.DescribeRegionsInput,
 	_ ...func(*ec2.Options)) (*ec2.DescribeRegionsOutput, error) {
-	f.Calls = append(f.Calls, "DescribeRegions")
+	f.record("DescribeRegions")
 	if f.DescribeRegionsFunc != nil {
 		return f.DescribeRegionsFunc(ctx, in)
 	}
@@ -68,7 +86,7 @@ func (f *EC2) DescribeRegions(ctx context.Context, in *ec2.DescribeRegionsInput,
 
 func (f *EC2) DescribeSnapshots(ctx context.Context, in *ec2.DescribeSnapshotsInput,
 	_ ...func(*ec2.Options)) (*ec2.DescribeSnapshotsOutput, error) {
-	f.Calls = append(f.Calls, "DescribeSnapshots")
+	f.record("DescribeSnapshots")
 	if f.DescribeSnapshotsFunc != nil {
 		return f.DescribeSnapshotsFunc(ctx, in)
 	}
@@ -77,7 +95,7 @@ func (f *EC2) DescribeSnapshots(ctx context.Context, in *ec2.DescribeSnapshotsIn
 
 func (f *EC2) DescribeImages(ctx context.Context, in *ec2.DescribeImagesInput,
 	_ ...func(*ec2.Options)) (*ec2.DescribeImagesOutput, error) {
-	f.Calls = append(f.Calls, "DescribeImages")
+	f.record("DescribeImages")
 	if f.DescribeImagesFunc != nil {
 		return f.DescribeImagesFunc(ctx, in)
 	}
@@ -86,7 +104,7 @@ func (f *EC2) DescribeImages(ctx context.Context, in *ec2.DescribeImagesInput,
 
 func (f *EC2) DescribeNatGateways(ctx context.Context, in *ec2.DescribeNatGatewaysInput,
 	_ ...func(*ec2.Options)) (*ec2.DescribeNatGatewaysOutput, error) {
-	f.Calls = append(f.Calls, "DescribeNatGateways")
+	f.record("DescribeNatGateways")
 	if f.DescribeNatGatewaysFunc != nil {
 		return f.DescribeNatGatewaysFunc(ctx, in)
 	}
@@ -96,12 +114,12 @@ func (f *EC2) DescribeNatGateways(ctx context.Context, in *ec2.DescribeNatGatewa
 // STS is a fake awsapi.STSAPI.
 type STS struct {
 	GetCallerIdentityFunc func(context.Context, *sts.GetCallerIdentityInput) (*sts.GetCallerIdentityOutput, error)
-	Calls                 []string
+	recorder
 }
 
 func (f *STS) GetCallerIdentity(ctx context.Context, in *sts.GetCallerIdentityInput,
 	_ ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error) {
-	f.Calls = append(f.Calls, "GetCallerIdentity")
+	f.record("GetCallerIdentity")
 	if f.GetCallerIdentityFunc != nil {
 		return f.GetCallerIdentityFunc(ctx, in)
 	}
@@ -111,12 +129,12 @@ func (f *STS) GetCallerIdentity(ctx context.Context, in *sts.GetCallerIdentityIn
 
 type CloudWatch struct {
 	GetMetricDataFunc func(context.Context, *cloudwatch.GetMetricDataInput) (*cloudwatch.GetMetricDataOutput, error)
-	Calls             []string
+	recorder
 }
 
 func (f *CloudWatch) GetMetricData(ctx context.Context, in *cloudwatch.GetMetricDataInput,
 	_ ...func(*cloudwatch.Options)) (*cloudwatch.GetMetricDataOutput, error) {
-	f.Calls = append(f.Calls, "GetMetricData")
+	f.record("GetMetricData")
 	if f.GetMetricDataFunc != nil {
 		return f.GetMetricDataFunc(ctx, in)
 	}
@@ -127,12 +145,12 @@ func (f *CloudWatch) GetMetricData(ctx context.Context, in *cloudwatch.GetMetric
 type ELB struct {
 	DescribeLoadBalancersFunc func(context.Context, *elb.DescribeLoadBalancersInput) (*elb.DescribeLoadBalancersOutput, error)
 	DescribeTagsFunc          func(context.Context, *elb.DescribeTagsInput) (*elb.DescribeTagsOutput, error)
-	Calls                     []string
+	recorder
 }
 
 func (f *ELB) DescribeLoadBalancers(ctx context.Context, in *elb.DescribeLoadBalancersInput,
 	_ ...func(*elb.Options)) (*elb.DescribeLoadBalancersOutput, error) {
-	f.Calls = append(f.Calls, "DescribeLoadBalancers")
+	f.record("DescribeLoadBalancers")
 	if f.DescribeLoadBalancersFunc != nil {
 		return f.DescribeLoadBalancersFunc(ctx, in)
 	}
@@ -141,7 +159,7 @@ func (f *ELB) DescribeLoadBalancers(ctx context.Context, in *elb.DescribeLoadBal
 
 func (f *ELB) DescribeTags(ctx context.Context, in *elb.DescribeTagsInput,
 	_ ...func(*elb.Options)) (*elb.DescribeTagsOutput, error) {
-	f.Calls = append(f.Calls, "DescribeTags")
+	f.record("DescribeTags")
 	if f.DescribeTagsFunc != nil {
 		return f.DescribeTagsFunc(ctx, in)
 	}
@@ -151,12 +169,12 @@ func (f *ELB) DescribeTags(ctx context.Context, in *elb.DescribeTagsInput,
 // RDS is a fake awsapi.RDSAPI.
 type RDS struct {
 	DescribeDBInstancesFunc func(context.Context, *rds.DescribeDBInstancesInput) (*rds.DescribeDBInstancesOutput, error)
-	Calls                   []string
+	recorder
 }
 
 func (f *RDS) DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstancesInput,
 	_ ...func(*rds.Options)) (*rds.DescribeDBInstancesOutput, error) {
-	f.Calls = append(f.Calls, "DescribeDBInstances")
+	f.record("DescribeDBInstances")
 	if f.DescribeDBInstancesFunc != nil {
 		return f.DescribeDBInstancesFunc(ctx, in)
 	}

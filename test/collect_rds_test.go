@@ -55,11 +55,13 @@ func TestRDSMetricQueryUsesTheRightDimension(t *testing.T) {
 	}
 
 	eng := &scan.Engine{
-		AWS: &fake.Factory{
-			Clients: awsapi.Clients{
-				EC2: &fake.EC2{}, CW: cw, ELB: &fake.ELB{}, RDS: rdsapi,
+		Accounts: []awsapi.Factory{
+			&fake.Factory{
+				Clients: awsapi.Clients{
+					EC2: &fake.EC2{}, CW: cw, ELB: &fake.ELB{}, RDS: rdsapi,
+				},
+				Base: "us-east-1",
 			},
-			Base: "us-east-1",
 		},
 		Cfg:   detect.Defaults(),
 		Clock: func() time.Time { return now },
