@@ -47,7 +47,7 @@ func engineWith(t *testing.T, filters ...filter.Filter) *scan.Engine {
 	return &scan.Engine{
 		Accounts: []awsapi.Factory{
 			&fake.Factory{
-				Clients: awsapi.Clients{EC2: ec2api, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{}, EFS: &fake.EFS{}},
+				Clients: awsapi.Clients{EC2: ec2api, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{}, EFS: &fake.EFS{}, KMS: &fake.KMS{}},
 				Account: "123456789012",
 				Base:    "us-east-1",
 			},
@@ -111,7 +111,7 @@ func TestEmptyReportIsStillValid(t *testing.T) {
 	eng := &scan.Engine{
 		Accounts: []awsapi.Factory{
 			&fake.Factory{Clients: awsapi.Clients{
-				EC2: &fake.EC2{}, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{}, EFS: &fake.EFS{},
+				EC2: &fake.EC2{}, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{}, EFS: &fake.EFS{}, KMS: &fake.KMS{},
 			}},
 		},
 		Cfg:   detect.Defaults(),
