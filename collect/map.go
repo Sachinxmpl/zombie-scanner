@@ -9,6 +9,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	kmstypes "github.com/aws/aws-sdk-go-v2/service/kms/types"
 	rdstypes "github.com/aws/aws-sdk-go-v2/service/rds/types"
 
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
@@ -255,4 +256,15 @@ func toEFSTags(tags []efstypes.Tag) map[string]string {
 		}
 	}
 	return m
+}
+
+func toKMSKey(m kmstypes.KeyMetadata) zombie.KMSKey {
+	return zombie.KMSKey{
+		ID:          aws.ToString(m.KeyId),
+		ARN:         aws.ToString(m.Arn),
+		Manager:     string(m.KeyManager),
+		State:       string(m.KeyState),
+		Description: aws.ToString(m.Description),
+		CreatedAt:   aws.ToTime(m.CreationDate),
+	}
 }

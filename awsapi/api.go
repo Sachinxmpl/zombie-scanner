@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
@@ -55,12 +56,18 @@ type EFSAPI interface {
 	DescribeFileSystems(ctx context.Context, in *efs.DescribeFileSystemsInput, opts ...func(*efs.Options)) (*efs.DescribeFileSystemsOutput, error)
 }
 
+type KMSAPI interface {
+	ListKeys(ctx context.Context, in *kms.ListKeysInput, opts ...func(*kms.Options)) (*kms.ListKeysOutput, error)
+	DescribeKey(ctx context.Context, in *kms.DescribeKeyInput, opts ...func(*kms.Options)) (*kms.DescribeKeyOutput, error)
+}
+
 type Clients struct {
 	EC2 EC2API
 	CW  CloudWatchAPI
 	ELB ELBAPI
 	RDS RDSAPI
 	EFS EFSAPI
+	KMS KMSAPI
 }
 
 // Compile time proof that real SDK clients satisfy these interfaces
@@ -72,6 +79,7 @@ var (
 	_ ELBAPI        = (*elb.Client)(nil)
 	_ RDSAPI        = (*rds.Client)(nil)
 	_ EFSAPI        = (*efs.Client)(nil)
+	_ KMSAPI        = (*kms.Client)(nil)
 )
 
 type Factory interface {

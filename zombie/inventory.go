@@ -20,11 +20,21 @@ type Inventory struct {
 	DBInstances   []DBInstance
 	DBSnapshots   []DBSnapshot
 	FileSystems   []FileSystem
+	KMSKeys       []KMSKey
 
 	// operations that didn't complete, "service:Operation"
 	Failed map[string]bool
 
 	Metrics MetricSet
+}
+
+type KMSKey struct {
+	ID          string
+	ARN         string
+	Manager     string // "AWS", "CUSTOMER"
+	State       string // "Enabled", "Disabled"
+	Description string
+	CreatedAt   time.Time
 }
 
 type DBInstance struct {
