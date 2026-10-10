@@ -12,6 +12,8 @@
         "ec2:DescribeRegions",
         "ec2:DescribeSnapshots",
         "ec2:DescribeVolumes",
+        "ecr:DescribeImages",
+        "ecr:DescribeRepositories",
         "elasticfilesystem:DescribeFileSystems",
         "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DescribeTags",

@@ -152,6 +152,7 @@ permissions it needs.
 | `ebs-unattached`     | HIGH       | Volumes in state `available`                   | size × per-GiB rate     |
 | `eip-unassociated`   | HIGH       | Elastic IPs attached to nothing                | flat monthly            |
 | `efs-unused`         | HIGH       | File systems with no mount targets             | size × per-tier rate    |
+| `kms-key-disabled`   | HIGH       | Disabled customer-managed encryption keys      | flat $1/key             |
 | `rds-stopped`        | HIGH       | Stopped databases still paying for storage     | allocated GiB × rate    |
 | `instance-stopped`   | MEDIUM     | Stopped instances still paying for their disks | sum of attached volumes |
 | `rds-idle`           | MEDIUM     | Running databases nothing connected to         | class $/hr × 730 + storage |
@@ -159,6 +160,7 @@ permissions it needs.
 | `elb-idle`           | MEDIUM     | ALBs below a request-count floor               | hourly × 730            |
 | `snapshot-aged`      | LOW        | Old snapshots that no AMI references           | size × snapshot rate    |
 | `rds-snapshot-aged`  | LOW        | Old manual database snapshots                  | size × backup rate      |
+| `ecr-untagged`       | LOW–MEDIUM | Old untagged container images                  | size × storage rate     |
 
 A few are worth calling out.
 
@@ -196,6 +198,16 @@ nothing rather than guessing.
 on their own. A manual snapshot stays until someone deletes it, even after its
 database is gone. It is priced on the snapshot's real size; when AWS does not
 report that, it uses the database's size and marks the price as an upper bound.
+
+**`ecr-untagged`** finds the images a build pipeline leaves behind when it
+pushes a new image under an old tag. It is LOW by default and MEDIUM only when
+ECR has recorded a pull and that pull is old. A missing pull time is not taken
+as "never pulled", because ECR only records pulls since it started tracking
+them. The price is an upper bound: images share layers, which are stored once.
+
+**`kms-key-disabled`** and **`ecr-untagged`** need one extra call per key or
+repository. If a key or repository policy blocks that call, the rest are still
+checked and the report says how many could not be read.
 
 ## Confidence levels
 
