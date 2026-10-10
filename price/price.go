@@ -36,6 +36,7 @@ type table struct {
 	ALBMonth              float64            `json:"alb_month"`
 	RDSBackupPerGiBMonth  float64            `json:"rds_backup_per_gib_month"`
 	EFSPerGiBMonth        map[string]float64 `json:"efs_per_gib_month"`
+	KMSKeyMonth           float64            `json:"kms_key_month"`
 
 	RegionMultipliers       map[string]float64 `json:"region_multipliers"`
 	DefaultRegionMultiplier float64            `json:"default_region_multiplier"`
@@ -66,6 +67,7 @@ type Rates struct {
 	ALBMonth              float64
 	RDSBackupPerGiBMonth  float64
 	EFSPerGiBMonth        map[string]float64
+	KMSKeyMonth           float64
 
 	Region           string
 	RegionMultiplier float64
@@ -87,6 +89,7 @@ func For(region string) Rates {
 		ALBMonth:              base.ALBMonth,
 		RDSBackupPerGiBMonth:  base.RDSBackupPerGiBMonth,
 		EFSPerGiBMonth:        base.EFSPerGiBMonth,
+		KMSKeyMonth:           base.KMSKeyMonth,
 		Region:                region,
 		RegionMultiplier:      mult,
 	}
@@ -104,6 +107,7 @@ var pricers = map[string]Pricer{
 	"rds-instance":   priceRDSInstance,
 	"rds-snapshot":   priceRDSSnapshot,
 	"efs-filesystem": priceEFS,
+	"kms-key":        priceKMSKey,
 }
 
 // Prices every finding for one region
@@ -311,6 +315,13 @@ func priceRDSSnapshot(f *zombie.Finding, r Rates) {
 		f.CostBasis += " [upper bound: snapshot size unreported, using the instance allocation]"
 		f.Meta("price_upper_bound", "true")
 	}
+}
+
+// A flat fee per key, the same in every commercial region
+func priceKMSKey(f *zombie.Finding, r Rates) {
+	f.MonthlyCost = r.KMSKeyMonth
+	f.CostBasis = fmt.Sprintf("$%.2f/mo per customer-managed key (%s), excludes API request charges",
+		r.KMSKeyMonth, r.Region)
 }
 
 func priceEFS(f *zombie.Finding, r Rates) {

@@ -15,6 +15,8 @@
         "elasticfilesystem:DescribeFileSystems",
         "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DescribeTags",
+        "kms:DescribeKey",
+        "kms:ListKeys",
         "rds:DescribeDBInstances",
         "rds:DescribeDBSnapshots",
         "sts:GetCallerIdentity"

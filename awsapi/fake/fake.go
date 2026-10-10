@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
@@ -206,6 +207,31 @@ func (f *EFS) DescribeFileSystems(ctx context.Context, in *efs.DescribeFileSyste
 	return &efs.DescribeFileSystemsOutput{}, nil
 }
 
+// KMS is a fake awsapi.KMSAPI.
+type KMS struct {
+	ListKeysFunc    func(context.Context, *kms.ListKeysInput) (*kms.ListKeysOutput, error)
+	DescribeKeyFunc func(context.Context, *kms.DescribeKeyInput) (*kms.DescribeKeyOutput, error)
+	recorder
+}
+
+func (f *KMS) ListKeys(ctx context.Context, in *kms.ListKeysInput,
+	_ ...func(*kms.Options)) (*kms.ListKeysOutput, error) {
+	f.record("ListKeys")
+	if f.ListKeysFunc != nil {
+		return f.ListKeysFunc(ctx, in)
+	}
+	return &kms.ListKeysOutput{}, nil
+}
+
+func (f *KMS) DescribeKey(ctx context.Context, in *kms.DescribeKeyInput,
+	_ ...func(*kms.Options)) (*kms.DescribeKeyOutput, error) {
+	f.record("DescribeKey")
+	if f.DescribeKeyFunc != nil {
+		return f.DescribeKeyFunc(ctx, in)
+	}
+	return &kms.DescribeKeyOutput{}, nil
+}
+
 // Factory is a fake awsapi.Factory.
 type Factory struct {
 	Clients   awsapi.Clients
@@ -252,4 +278,5 @@ var (
 	_ awsapi.CloudWatchAPI = (*CloudWatch)(nil)
 	_ awsapi.Factory       = (*Factory)(nil)
 	_ awsapi.EFSAPI        = (*EFS)(nil)
+	_ awsapi.KMSAPI        = (*KMS)(nil)
 )

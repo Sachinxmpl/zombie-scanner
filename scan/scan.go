@@ -240,6 +240,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 			inv.DBSnapshots = s
 			return err
 		}},
+		{"kms", "ListKeys", func(ctx context.Context, inv *zombie.Inventory) error {
+			k, err := collect.KMSKeys(ctx, clients.KMS)
+			inv.KMSKeys = k
+			return err
+		}},
 		{"elasticfilesystem", "DescribeFileSystems", func(ctx context.Context, inv *zombie.Inventory) error {
 			fs, err := collect.FileSystems(ctx, clients.EFS)
 			inv.FileSystems = fs
@@ -303,6 +308,13 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 	for _, s := range steps {
 		t0 := time.Now()
 		if err := s.run(ctx, &inv); err != nil {
+			// the listing worked, so what was read stays usable; only report the gap
+			var partial *collect.Partial
+			if errors.As(err, &partial) {
+				e.log().Debug("step partial", "op", s.service+":"+s.operation, "region", region, "err", err)
+				errs = append(errs, newScanError(account, region, partial.Service, partial.Operation, err))
+				continue
+			}
 			e.log().Debug("step failed", "op", s.service+":"+s.operation, "region", region, "err", err)
 			inv.Failed[s.service+":"+s.operation] = true
 			errs = append(errs, newScanError(account, region, s.service, s.operation, err))
