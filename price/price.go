@@ -37,6 +37,7 @@ type table struct {
 	RDSBackupPerGiBMonth  float64            `json:"rds_backup_per_gib_month"`
 	EFSPerGiBMonth        map[string]float64 `json:"efs_per_gib_month"`
 	KMSKeyMonth           float64            `json:"kms_key_month"`
+	ECRPerGiBMonth        float64            `json:"ecr_per_gib_month"`
 
 	RegionMultipliers       map[string]float64 `json:"region_multipliers"`
 	DefaultRegionMultiplier float64            `json:"default_region_multiplier"`
@@ -68,6 +69,7 @@ type Rates struct {
 	RDSBackupPerGiBMonth  float64
 	EFSPerGiBMonth        map[string]float64
 	KMSKeyMonth           float64
+	ECRPerGiBMonth        float64
 
 	Region           string
 	RegionMultiplier float64
@@ -90,6 +92,7 @@ func For(region string) Rates {
 		RDSBackupPerGiBMonth:  base.RDSBackupPerGiBMonth,
 		EFSPerGiBMonth:        base.EFSPerGiBMonth,
 		KMSKeyMonth:           base.KMSKeyMonth,
+		ECRPerGiBMonth:        base.ECRPerGiBMonth,
 		Region:                region,
 		RegionMultiplier:      mult,
 	}
@@ -108,6 +111,7 @@ var pricers = map[string]Pricer{
 	"rds-snapshot":   priceRDSSnapshot,
 	"efs-filesystem": priceEFS,
 	"kms-key":        priceKMSKey,
+	"ecr-image":      priceECRImage,
 }
 
 // Prices every finding for one region
@@ -322,6 +326,20 @@ func priceKMSKey(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = r.KMSKeyMonth
 	f.CostBasis = fmt.Sprintf("$%.2f/mo per customer-managed key (%s), excludes API request charges",
 		r.KMSKeyMonth, r.Region)
+}
+
+func priceECRImage(f *zombie.Finding, r Rates) {
+	bytes, err := strconv.ParseInt(f.Metadata["size_bytes"], 10, 64)
+	if err != nil || bytes <= 0 {
+		f.CostBasis = "unknown image size not priced"
+		return
+	}
+	gib := float64(bytes) / (1 << 30)
+
+	f.MonthlyCost = gib * r.ECRPerGiBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("%.2f GiB $%.2f/GiB-mo x %.2f (%s) [upper bound: shared layers are stored once]",
+		gib, r.ECRPerGiBMonth, r.RegionMultiplier, r.Region)
+	f.Meta("price_upper_bound", "true")
 }
 
 func priceEFS(f *zombie.Finding, r Rates) {

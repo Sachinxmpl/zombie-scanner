@@ -58,7 +58,7 @@ func TestRDSMetricQueryUsesTheRightDimension(t *testing.T) {
 		Accounts: []awsapi.Factory{
 			&fake.Factory{
 				Clients: awsapi.Clients{
-					EC2: &fake.EC2{}, CW: cw, ELB: &fake.ELB{}, RDS: rdsapi, EFS: &fake.EFS{}, KMS: &fake.KMS{},
+					EC2: &fake.EC2{}, CW: cw, ELB: &fake.ELB{}, RDS: rdsapi, EFS: &fake.EFS{}, KMS: &fake.KMS{}, ECR: &fake.ECR{},
 				},
 				Base: "us-east-1",
 			},

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
@@ -101,6 +102,7 @@ func (f *factory) For(_ context.Context, region string) (Clients, error) {
 		RDS: rds.NewFromConfig(cfg),
 		EFS: efs.NewFromConfig(cfg),
 		KMS: kms.NewFromConfig(cfg),
+		ECR: ecr.NewFromConfig(cfg),
 	}
 	f.clients[region] = c
 	return c, nil

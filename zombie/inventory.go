@@ -21,6 +21,7 @@ type Inventory struct {
 	DBSnapshots   []DBSnapshot
 	FileSystems   []FileSystem
 	KMSKeys       []KMSKey
+	ECRImages     []ECRImage
 
 	// operations that didn't complete, "service:Operation"
 	Failed map[string]bool
@@ -35,6 +36,16 @@ type KMSKey struct {
 	State       string // "Enabled", "Disabled"
 	Description string
 	CreatedAt   time.Time
+}
+
+type ECRImage struct {
+	Digest     string
+	Repository string
+	RepoARN    string
+	Tags       []string
+	SizeBytes  int64
+	PushedAt   time.Time
+	LastPulled *time.Time
 }
 
 type DBInstance struct {

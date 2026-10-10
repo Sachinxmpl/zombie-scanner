@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
@@ -61,6 +62,11 @@ type KMSAPI interface {
 	DescribeKey(ctx context.Context, in *kms.DescribeKeyInput, opts ...func(*kms.Options)) (*kms.DescribeKeyOutput, error)
 }
 
+type ECRAPI interface {
+	DescribeRepositories(ctx context.Context, in *ecr.DescribeRepositoriesInput, opts ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error)
+	DescribeImages(ctx context.Context, in *ecr.DescribeImagesInput, opts ...func(*ecr.Options)) (*ecr.DescribeImagesOutput, error)
+}
+
 type Clients struct {
 	EC2 EC2API
 	CW  CloudWatchAPI
@@ -68,6 +74,7 @@ type Clients struct {
 	RDS RDSAPI
 	EFS EFSAPI
 	KMS KMSAPI
+	ECR ECRAPI
 }
 
 // Compile time proof that real SDK clients satisfy these interfaces
@@ -80,6 +87,7 @@ var (
 	_ RDSAPI        = (*rds.Client)(nil)
 	_ EFSAPI        = (*efs.Client)(nil)
 	_ KMSAPI        = (*kms.Client)(nil)
+	_ ECRAPI        = (*ecr.Client)(nil)
 )
 
 type Factory interface {

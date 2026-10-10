@@ -52,6 +52,7 @@
   "rds_backup_per_gib_month": 0.095,
   "_efs_notes": "us-east-1 USD/GiB-month. IA and Archive are the cheaper tiers EFS moves cold data into. Per-tier sizes come straight from DescribeFileSystems.",
   "kms_key_month": 1.0,
+  "ecr_per_gib_month": 0.1,
   "efs_per_gib_month": {
     "standard": 0.3,
     "ia": 0.016,

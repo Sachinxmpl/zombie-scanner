@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
@@ -232,6 +233,31 @@ func (f *KMS) DescribeKey(ctx context.Context, in *kms.DescribeKeyInput,
 	return &kms.DescribeKeyOutput{}, nil
 }
 
+// ECR is a fake awsapi.ECRAPI.
+type ECR struct {
+	DescribeRepositoriesFunc func(context.Context, *ecr.DescribeRepositoriesInput) (*ecr.DescribeRepositoriesOutput, error)
+	DescribeImagesFunc       func(context.Context, *ecr.DescribeImagesInput) (*ecr.DescribeImagesOutput, error)
+	recorder
+}
+
+func (f *ECR) DescribeRepositories(ctx context.Context, in *ecr.DescribeRepositoriesInput,
+	_ ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error) {
+	f.record("DescribeRepositories")
+	if f.DescribeRepositoriesFunc != nil {
+		return f.DescribeRepositoriesFunc(ctx, in)
+	}
+	return &ecr.DescribeRepositoriesOutput{}, nil
+}
+
+func (f *ECR) DescribeImages(ctx context.Context, in *ecr.DescribeImagesInput,
+	_ ...func(*ecr.Options)) (*ecr.DescribeImagesOutput, error) {
+	f.record("DescribeImages")
+	if f.DescribeImagesFunc != nil {
+		return f.DescribeImagesFunc(ctx, in)
+	}
+	return &ecr.DescribeImagesOutput{}, nil
+}
+
 // Factory is a fake awsapi.Factory.
 type Factory struct {
 	Clients   awsapi.Clients
@@ -279,4 +305,5 @@ var (
 	_ awsapi.Factory       = (*Factory)(nil)
 	_ awsapi.EFSAPI        = (*EFS)(nil)
 	_ awsapi.KMSAPI        = (*KMS)(nil)
+	_ awsapi.ECRAPI        = (*ECR)(nil)
 )

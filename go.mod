@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.36
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.70.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.325.1
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.66.4
 	github.com/aws/aws-sdk-go-v2/service/efs v1.49.3
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.61.0
 	github.com/aws/aws-sdk-go-v2/service/kms v1.61.4

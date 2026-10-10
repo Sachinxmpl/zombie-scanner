@@ -245,6 +245,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 			inv.KMSKeys = k
 			return err
 		}},
+		{"ecr", "DescribeRepositories", func(ctx context.Context, inv *zombie.Inventory) error {
+			i, err := collect.ECRImages(ctx, clients.ECR)
+			inv.ECRImages = i
+			return err
+		}},
 		{"elasticfilesystem", "DescribeFileSystems", func(ctx context.Context, inv *zombie.Inventory) error {
 			fs, err := collect.FileSystems(ctx, clients.EFS)
 			inv.FileSystems = fs

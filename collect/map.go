@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	ecrtypes "github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	kmstypes "github.com/aws/aws-sdk-go-v2/service/kms/types"
@@ -267,4 +268,20 @@ func toKMSKey(m kmstypes.KeyMetadata) zombie.KMSKey {
 		Description: aws.ToString(m.Description),
 		CreatedAt:   aws.ToTime(m.CreationDate),
 	}
+}
+
+func toECRImage(d ecrtypes.ImageDetail, repo, repoARN string) zombie.ECRImage {
+	out := zombie.ECRImage{
+		Digest:     aws.ToString(d.ImageDigest),
+		Repository: repo,
+		RepoARN:    repoARN,
+		Tags:       d.ImageTags,
+		SizeBytes:  aws.ToInt64(d.ImageSizeInBytes),
+		PushedAt:   aws.ToTime(d.ImagePushedAt),
+	}
+	if d.LastRecordedPullTime != nil {
+		t := d.LastRecordedPullTime.UTC()
+		out.LastPulled = &t
+	}
+	return out
 }

@@ -37,7 +37,7 @@ func TestMultiAccountScan(t *testing.T) {
 	}
 	account := func(id string, ec2api *fake.EC2) *fake.Factory {
 		return &fake.Factory{
-			Clients: awsapi.Clients{EC2: ec2api, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{}, EFS: &fake.EFS{}, KMS: &fake.KMS{}},
+			Clients: awsapi.Clients{EC2: ec2api, CW: &fake.CloudWatch{}, ELB: &fake.ELB{}, RDS: &fake.RDS{}, EFS: &fake.EFS{}, KMS: &fake.KMS{}, ECR: &fake.ECR{}},
 			Account: id,
 			Base:    "us-east-1",
 		}

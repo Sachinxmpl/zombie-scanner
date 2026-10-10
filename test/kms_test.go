@@ -106,7 +106,7 @@ func TestPartialKMSReadKeepsFindingsAndWarns(t *testing.T) {
 	eng := &scan.Engine{
 		Accounts: []awsapi.Factory{&fake.Factory{
 			Clients: awsapi.Clients{EC2: &fake.EC2{}, CW: &fake.CloudWatch{}, ELB: &fake.ELB{},
-				RDS: &fake.RDS{}, EFS: &fake.EFS{}, KMS: oneDeniedKey()},
+				RDS: &fake.RDS{}, EFS: &fake.EFS{}, KMS: oneDeniedKey(), ECR: &fake.ECR{}},
 			Base: "us-east-1",
 		}},
 		Cfg:   detect.Defaults(),
