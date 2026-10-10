@@ -34,6 +34,10 @@ type table struct {
 	ElasticIPMonth        float64            `json:"elastic_ip_month"`
 	NATGatewayMonth       float64            `json:"nat_gateway_month"`
 	ALBMonth              float64            `json:"alb_month"`
+	RDSBackupPerGiBMonth  float64            `json:"rds_backup_per_gib_month"`
+	EFSPerGiBMonth        map[string]float64 `json:"efs_per_gib_month"`
+	KMSKeyMonth           float64            `json:"kms_key_month"`
+	ECRPerGiBMonth        float64            `json:"ecr_per_gib_month"`
 
 	RegionMultipliers       map[string]float64 `json:"region_multipliers"`
 	DefaultRegionMultiplier float64            `json:"default_region_multiplier"`
@@ -62,6 +66,10 @@ type Rates struct {
 	ElasticIPMonth        float64
 	NATGatewayMonth       float64
 	ALBMonth              float64
+	RDSBackupPerGiBMonth  float64
+	EFSPerGiBMonth        map[string]float64
+	KMSKeyMonth           float64
+	ECRPerGiBMonth        float64
 
 	Region           string
 	RegionMultiplier float64
@@ -81,6 +89,10 @@ func For(region string) Rates {
 		ElasticIPMonth:        base.ElasticIPMonth,
 		NATGatewayMonth:       base.NATGatewayMonth,
 		ALBMonth:              base.ALBMonth,
+		RDSBackupPerGiBMonth:  base.RDSBackupPerGiBMonth,
+		EFSPerGiBMonth:        base.EFSPerGiBMonth,
+		KMSKeyMonth:           base.KMSKeyMonth,
+		ECRPerGiBMonth:        base.ECRPerGiBMonth,
 		Region:                region,
 		RegionMultiplier:      mult,
 	}
@@ -89,13 +101,17 @@ func For(region string) Rates {
 type Pricer func(f *zombie.Finding, r Rates)
 
 var pricers = map[string]Pricer{
-	"ebs-volume":   priceEBSVolume,
-	"elastic-ip":   priceElasticIP,
-	"ebs-snapshot": priceSnapshot,
-	"ec2-instance": priceStoppedInstance,
-	"nat-gateway":  priceNATGateway,
-	"alb":          priceALB,
-	"rds-instance": priceRDSInstance,
+	"ebs-volume":     priceEBSVolume,
+	"elastic-ip":     priceElasticIP,
+	"ebs-snapshot":   priceSnapshot,
+	"ec2-instance":   priceStoppedInstance,
+	"nat-gateway":    priceNATGateway,
+	"alb":            priceALB,
+	"rds-instance":   priceRDSInstance,
+	"rds-snapshot":   priceRDSSnapshot,
+	"efs-filesystem": priceEFS,
+	"kms-key":        priceKMSKey,
+	"ecr-image":      priceECRImage,
 }
 
 // Prices every finding for one region
@@ -283,4 +299,73 @@ func priceALB(f *zombie.Finding, r Rates) {
 	f.MonthlyCost = r.ALBMonth * r.RegionMultiplier
 	f.CostBasis = fmt.Sprintf("$%.2f/mo x %.2f (%s), hourly charge only - excludes LCU",
 		r.ALBMonth, r.RegionMultiplier, r.Region)
+}
+
+// Backup storage bills on what the snapshot occupies. When AWS did not report
+// that, the instance's allocated storage is an upper bound.
+func priceRDSSnapshot(f *zombie.Finding, r Rates) {
+	bytes, err := strconv.ParseInt(f.Metadata["size_bytes"], 10, 64)
+	if err != nil || bytes <= 0 {
+		f.CostBasis = "unknown snapshot size not priced"
+		return
+	}
+	gib := float64(bytes) / (1 << 30)
+
+	f.MonthlyCost = gib * r.RDSBackupPerGiBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("%.2f GiB $%.3f/GiB-mo x %.2f (%s)",
+		gib, r.RDSBackupPerGiBMonth, r.RegionMultiplier, r.Region)
+
+	if f.Metadata["size_is_instance_allocation"] == "true" {
+		f.CostBasis += " [upper bound: snapshot size unreported, using the instance allocation]"
+		f.Meta("price_upper_bound", "true")
+	}
+}
+
+// A flat fee per key, the same in every commercial region
+func priceKMSKey(f *zombie.Finding, r Rates) {
+	f.MonthlyCost = r.KMSKeyMonth
+	f.CostBasis = fmt.Sprintf("$%.2f/mo per customer-managed key (%s), excludes API request charges",
+		r.KMSKeyMonth, r.Region)
+}
+
+func priceECRImage(f *zombie.Finding, r Rates) {
+	bytes, err := strconv.ParseInt(f.Metadata["size_bytes"], 10, 64)
+	if err != nil || bytes <= 0 {
+		f.CostBasis = "unknown image size not priced"
+		return
+	}
+	gib := float64(bytes) / (1 << 30)
+
+	f.MonthlyCost = gib * r.ECRPerGiBMonth * r.RegionMultiplier
+	f.CostBasis = fmt.Sprintf("%.2f GiB $%.2f/GiB-mo x %.2f (%s) [upper bound: shared layers are stored once]",
+		gib, r.ECRPerGiBMonth, r.RegionMultiplier, r.Region)
+	f.Meta("price_upper_bound", "true")
+}
+
+func priceEFS(f *zombie.Finding, r Rates) {
+	var total float64
+	parts := make([]string, 0, 3)
+
+	for _, tier := range []string{"standard", "ia", "archive"} {
+		bytes, err := strconv.ParseInt(f.Metadata[tier+"_bytes"], 10, 64)
+		if err != nil || bytes <= 0 {
+			continue
+		}
+		gib := float64(bytes) / (1 << 30)
+		rate, known := r.EFSPerGiBMonth[tier]
+		if !known {
+			continue
+		}
+		total += gib * rate * r.RegionMultiplier
+		parts = append(parts, fmt.Sprintf("%.2f GiB %s $%.3f/GiB-mo", gib, tier, rate))
+	}
+
+	if len(parts) == 0 {
+		f.CostBasis = "unknown file system size not priced"
+		return
+	}
+
+	f.MonthlyCost = total
+	f.CostBasis = fmt.Sprintf("%s x %.2f (%s)",
+		strings.Join(parts, " + "), r.RegionMultiplier, r.Region)
 }

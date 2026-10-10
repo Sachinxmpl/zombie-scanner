@@ -7,7 +7,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	ecrtypes "github.com/aws/aws-sdk-go-v2/service/ecr/types"
+	efstypes "github.com/aws/aws-sdk-go-v2/service/efs/types"
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	kmstypes "github.com/aws/aws-sdk-go-v2/service/kms/types"
 	rdstypes "github.com/aws/aws-sdk-go-v2/service/rds/types"
 
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
@@ -172,6 +175,26 @@ func toDBInstance(db rdstypes.DBInstance) zombie.DBInstance {
 	return out
 }
 
+func toDBSnapshot(s rdstypes.DBSnapshot) zombie.DBSnapshot {
+	out := zombie.DBSnapshot{
+		ID:         aws.ToString(s.DBSnapshotIdentifier),
+		ARN:        aws.ToString(s.DBSnapshotArn),
+		DBInstance: aws.ToString(s.DBInstanceIdentifier),
+		Type:       aws.ToString(s.SnapshotType),
+		Engine:     aws.ToString(s.Engine),
+		Status:     aws.ToString(s.Status),
+		StorageGiB: aws.ToInt32(s.AllocatedStorage),
+		CreatedAt:  aws.ToTime(s.SnapshotCreateTime),
+		Tags:       toRDSTags(s.TagList),
+	}
+	// what the snapshot really occupies, which is what backup storage bills.
+	// Missing on older snapshots, so the detector falls back to the instance size.
+	if b := aws.ToInt64(s.FullSnapshotSizeInBytes); b > 0 {
+		out.ActualBytes = b
+	}
+	return out
+}
+
 // RDS tag type differ from EC2, (toTags doesn't work here)
 func toRDSTags(tags []rdstypes.Tag) map[string]string {
 	if len(tags) == 0 {
@@ -197,4 +220,68 @@ func toELBTags(tags []elbtypes.Tag) map[string]string {
 		}
 	}
 	return m
+}
+
+func toFileSystem(fs efstypes.FileSystemDescription) zombie.FileSystem {
+	out := zombie.FileSystem{
+		ID:           aws.ToString(fs.FileSystemId),
+		ARN:          aws.ToString(fs.FileSystemArn),
+		Name:         aws.ToString(fs.Name),
+		State:        string(fs.LifeCycleState),
+		MountTargets: fs.NumberOfMountTargets,
+		CreatedAt:    aws.ToTime(fs.CreationTime),
+		Tags:         toEFSTags(fs.Tags),
+	}
+	if s := fs.SizeInBytes; s != nil {
+		out.StandardBytes = aws.ToInt64(s.ValueInStandard)
+		out.IABytes = aws.ToInt64(s.ValueInIA)
+		out.ArchiveBytes = aws.ToInt64(s.ValueInArchive)
+
+		// older responses report only the total
+		//  count it as standard rather than report a file system holding data as holding none
+		if out.StandardBytes+out.IABytes+out.ArchiveBytes == 0 {
+			out.StandardBytes = s.Value
+		}
+	}
+	return out
+}
+
+func toEFSTags(tags []efstypes.Tag) map[string]string {
+	if len(tags) == 0 {
+		return nil
+	}
+	m := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if k := aws.ToString(t.Key); k != "" {
+			m[k] = aws.ToString(t.Value)
+		}
+	}
+	return m
+}
+
+func toKMSKey(m kmstypes.KeyMetadata) zombie.KMSKey {
+	return zombie.KMSKey{
+		ID:          aws.ToString(m.KeyId),
+		ARN:         aws.ToString(m.Arn),
+		Manager:     string(m.KeyManager),
+		State:       string(m.KeyState),
+		Description: aws.ToString(m.Description),
+		CreatedAt:   aws.ToTime(m.CreationDate),
+	}
+}
+
+func toECRImage(d ecrtypes.ImageDetail, repo, repoARN string) zombie.ECRImage {
+	out := zombie.ECRImage{
+		Digest:     aws.ToString(d.ImageDigest),
+		Repository: repo,
+		RepoARN:    repoARN,
+		Tags:       d.ImageTags,
+		SizeBytes:  aws.ToInt64(d.ImageSizeInBytes),
+		PushedAt:   aws.ToTime(d.ImagePushedAt),
+	}
+	if d.LastRecordedPullTime != nil {
+		t := d.LastRecordedPullTime.UTC()
+		out.LastPulled = &t
+	}
+	return out
 }

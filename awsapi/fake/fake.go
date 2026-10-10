@@ -9,7 +9,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/efs"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
@@ -170,6 +173,7 @@ func (f *ELB) DescribeTags(ctx context.Context, in *elb.DescribeTagsInput,
 type RDS struct {
 	DescribeDBInstancesFunc func(context.Context, *rds.DescribeDBInstancesInput) (*rds.DescribeDBInstancesOutput, error)
 	recorder
+	DescribeDBSnapshotsFunc func(context.Context, *rds.DescribeDBSnapshotsInput) (*rds.DescribeDBSnapshotsOutput, error)
 }
 
 func (f *RDS) DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstancesInput,
@@ -179,6 +183,79 @@ func (f *RDS) DescribeDBInstances(ctx context.Context, in *rds.DescribeDBInstanc
 		return f.DescribeDBInstancesFunc(ctx, in)
 	}
 	return &rds.DescribeDBInstancesOutput{}, nil
+}
+
+func (f *RDS) DescribeDBSnapshots(ctx context.Context, in *rds.DescribeDBSnapshotsInput,
+	_ ...func(*rds.Options)) (*rds.DescribeDBSnapshotsOutput, error) {
+	f.record("DescribeDBSnapshots")
+	if f.DescribeDBSnapshotsFunc != nil {
+		return f.DescribeDBSnapshotsFunc(ctx, in)
+	}
+	return &rds.DescribeDBSnapshotsOutput{}, nil
+}
+
+type EFS struct {
+	DescribeFileSystemsFunc func(context.Context, *efs.DescribeFileSystemsInput) (*efs.DescribeFileSystemsOutput, error)
+	recorder
+}
+
+func (f *EFS) DescribeFileSystems(ctx context.Context, in *efs.DescribeFileSystemsInput,
+	_ ...func(*efs.Options)) (*efs.DescribeFileSystemsOutput, error) {
+	f.record("DescribeFileSystems")
+	if f.DescribeFileSystemsFunc != nil {
+		return f.DescribeFileSystemsFunc(ctx, in)
+	}
+	return &efs.DescribeFileSystemsOutput{}, nil
+}
+
+// KMS is a fake awsapi.KMSAPI.
+type KMS struct {
+	ListKeysFunc    func(context.Context, *kms.ListKeysInput) (*kms.ListKeysOutput, error)
+	DescribeKeyFunc func(context.Context, *kms.DescribeKeyInput) (*kms.DescribeKeyOutput, error)
+	recorder
+}
+
+func (f *KMS) ListKeys(ctx context.Context, in *kms.ListKeysInput,
+	_ ...func(*kms.Options)) (*kms.ListKeysOutput, error) {
+	f.record("ListKeys")
+	if f.ListKeysFunc != nil {
+		return f.ListKeysFunc(ctx, in)
+	}
+	return &kms.ListKeysOutput{}, nil
+}
+
+func (f *KMS) DescribeKey(ctx context.Context, in *kms.DescribeKeyInput,
+	_ ...func(*kms.Options)) (*kms.DescribeKeyOutput, error) {
+	f.record("DescribeKey")
+	if f.DescribeKeyFunc != nil {
+		return f.DescribeKeyFunc(ctx, in)
+	}
+	return &kms.DescribeKeyOutput{}, nil
+}
+
+// ECR is a fake awsapi.ECRAPI.
+type ECR struct {
+	DescribeRepositoriesFunc func(context.Context, *ecr.DescribeRepositoriesInput) (*ecr.DescribeRepositoriesOutput, error)
+	DescribeImagesFunc       func(context.Context, *ecr.DescribeImagesInput) (*ecr.DescribeImagesOutput, error)
+	recorder
+}
+
+func (f *ECR) DescribeRepositories(ctx context.Context, in *ecr.DescribeRepositoriesInput,
+	_ ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error) {
+	f.record("DescribeRepositories")
+	if f.DescribeRepositoriesFunc != nil {
+		return f.DescribeRepositoriesFunc(ctx, in)
+	}
+	return &ecr.DescribeRepositoriesOutput{}, nil
+}
+
+func (f *ECR) DescribeImages(ctx context.Context, in *ecr.DescribeImagesInput,
+	_ ...func(*ecr.Options)) (*ecr.DescribeImagesOutput, error) {
+	f.record("DescribeImages")
+	if f.DescribeImagesFunc != nil {
+		return f.DescribeImagesFunc(ctx, in)
+	}
+	return &ecr.DescribeImagesOutput{}, nil
 }
 
 // Factory is a fake awsapi.Factory.
@@ -226,4 +303,7 @@ var (
 	_ awsapi.RDSAPI        = (*RDS)(nil)
 	_ awsapi.CloudWatchAPI = (*CloudWatch)(nil)
 	_ awsapi.Factory       = (*Factory)(nil)
+	_ awsapi.EFSAPI        = (*EFS)(nil)
+	_ awsapi.KMSAPI        = (*KMS)(nil)
+	_ awsapi.ECRAPI        = (*ECR)(nil)
 )
