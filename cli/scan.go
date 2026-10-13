@@ -40,8 +40,10 @@ func runScan(cmd *cobra.Command, o options) error {
 	if o.JSON {
 		format = "json"
 	}
-	if format != "table" && format != "json" {
-		return fmt.Errorf("unknown output format %q (want table or json)", format)
+	switch format {
+	case "table", "json", "markdown":
+	default:
+		return fmt.Errorf("unknown output format %q (want table, json or markdown)", format)
 	}
 
 	if err := validateDetectors(o.Only, o.Skip); err != nil {
@@ -115,9 +117,12 @@ func runScan(cmd *cobra.Command, o options) error {
 
 	// report to stdout, diagnostics to stderr, so --json | jq stays clean
 	w := cmd.OutOrStdout()
-	if format == "json" {
+	switch format {
+	case "json":
 		err = render.JSON(w, report)
-	} else {
+	case "markdown":
+		err = render.Markdown(w, report, render.MarkdownOptions{})
+	default:
 		err = render.Table(w, report, render.TableOptions{
 			NoColor: o.NoColor,
 			Verbose: o.Verbose,

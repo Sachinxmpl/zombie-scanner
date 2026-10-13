@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "tool": {
+    "name": "zombie-scanner",
+    "version": "v0.1.1-38-g4d90867-dirty",
+    "commit": "4d90867"
+  },
+  "account_id": "520646130605",
+  "accounts": [
+    "520646130605"
+  ],
+  "scanned_at": "2026-10-13T16:47:57.128818858Z",
+  "regions": [
+    "ap-south-1"
+  ],
+  "findings": [],
+  "errors": [],
+  "summary": {
+    "total_monthly_usd": 0,
+    "zombie_count": 0,
+    "by_confidence": {},
+    "by_detector_monthly_usd": {}
+  }
+}

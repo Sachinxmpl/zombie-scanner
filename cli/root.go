@@ -79,7 +79,7 @@ It never creates, modifies, or deletes anything.`,
 	pf.BoolVar(&o.AllRegions, "all-regions", false, "scan every region the account has opted into")
 	pf.StringVar(&o.Profile, "profile", "", "AWS profile to use")
 
-	pf.StringVar(&o.Output, "output", "table", "output format: table|json")
+	pf.StringVar(&o.Output, "output", "table", "output format: table|json|markdown")
 	pf.BoolVar(&o.JSON, "json", false, "shorthand for --output json")
 	pf.BoolVar(&o.NoColor, "no-color", false, "disable colour output")
 	pf.BoolVarP(&o.Verbose, "verbose", "v", false, "show how each cost was calculated")
@@ -123,6 +123,7 @@ It never creates, modifies, or deletes anything.`,
 
 	root.AddCommand(
 		newScanCommand(&o),
+		newRenderCommand(&o),
 		newDetectorsCommand(),
 		newVersionCommand(version, commit),
 		newIAMPolicyCommand(&o),
