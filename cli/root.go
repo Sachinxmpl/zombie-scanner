@@ -123,6 +123,7 @@ It never creates, modifies, or deletes anything.`,
 
 	root.AddCommand(
 		newScanCommand(&o),
+		newRenderCommand(&o),
 		newDetectorsCommand(),
 		newVersionCommand(version, commit),
 		newIAMPolicyCommand(&o),
