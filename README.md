@@ -251,6 +251,34 @@ A missing permission degrades the report rather than failing the run — you sti
 get every check that could run, plus a note naming the actions to grant. Pass
 `--strict` if you would rather an incomplete scan fail the build.
 
+### GitHub Action
+
+```yaml
+- uses: Sachinxmpl/zombie-scanner@v0.2.0
+  with:
+    args: --all-regions --min-cost 1
+    fail-if-above: "50"   # optional
+```
+
+The Action downloads the release matching its own tag, checks it against
+`checksums.txt` and its build attestation, and only then runs it. The report goes
+to the job summary, and later steps can read `monthly-usd`, `count` and `report`
+(the JSON file's path). A check that could not run is a warning, not a failure -
+add `--strict` to `args` if you want it to fail the job.
+
+A complete weekly workflow with OIDC login:
+[docs/examples/scheduled-scan.yml](docs/examples/scheduled-scan.yml).
+
+### Scan once, render many times
+
+```bash
+zombie-scanner scan --output json > report.json
+zombie-scanner render report.json --output markdown
+```
+
+`render` makes no AWS calls. It reads a saved report, or stdin, and prints it as a
+table, JSON or Markdown.
+
 ## JSON output
 
 ```bash
