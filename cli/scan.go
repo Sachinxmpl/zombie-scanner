@@ -50,6 +50,17 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
+	// CloudWatch rejects a zero-length window
+	if o.IdleWindowDays < 1 {
+		return fmt.Errorf("--idle-window-days must be at least 1, got %d", o.IdleWindowDays)
+	}
+	if o.StoppedDays < 0 {
+		return fmt.Errorf("--stopped-days cannot be negative, got %d", o.StoppedDays)
+	}
+	if o.SnapshotAgeDays < 0 {
+		return fmt.Errorf("--snapshot-age-days cannot be negative, got %d", o.SnapshotAgeDays)
+	}
+
 	filters := []filter.Filter{}
 
 	var unmanaged *filter.Unmanaged
