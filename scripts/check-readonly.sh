@@ -70,6 +70,12 @@ mutations="$mutations|CreateNatGateway|DeleteNatGateway|DeregisterImage|DeleteLo
 mutations="$mutations|PutMetricData|CreateBucket|DeleteObject"
 mutations="$mutations|CreateDBInstance|DeleteDBInstance|ModifyDBInstance|RebootDBInstance"
 mutations="$mutations|StartDBInstance|StopDBInstance|CreateDBSnapshot|DeleteDBSnapshot"
+mutations="$mutations|CreateFileSystem|DeleteFileSystem|UpdateFileSystem"
+mutations="$mutations|CreateMountTarget|DeleteMountTarget|PutLifecycleConfiguration"
+mutations="$mutations|ScheduleKeyDeletion|CancelKeyDeletion|DisableKey|EnableKey"
+mutations="$mutations|CreateKey|PutKeyPolicy|CreateAlias|DeleteAlias"
+mutations="$mutations|BatchDeleteImage|PutImage|PutImageTagMutability"
+mutations="$mutations|CreateRepository|DeleteRepository|SetRepositoryPolicy|PutLifecyclePolicy"
 
 if git ls-files '*.go' \
   | grep -v '_test\.go$' \
