@@ -1,6 +1,5 @@
 # ZombieScanner
 
-
 [![CI](https://github.com/Sachinxmpl/zombie-scanner/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Sachinxmpl/zombie-scanner/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Sachinxmpl/zombie-scanner)](https://github.com/Sachinxmpl/zombie-scanner/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Sachinxmpl/zombie-scanner)](https://goreportcard.com/report/github.com/Sachinxmpl/zombie-scanner)
@@ -9,10 +8,9 @@
 
 **Finds the AWS resources that are dead but still billing.**
 
-
-A single-binary CLI that reads your AWS account and prints the resources nothing
-is using, with an estimated monthly cost for each one and a total at the bottom.
-**It never creates, modifies, or deletes anything** — and that is enforced by CI
+A command-line tool that looks through your AWS account, lists the
+resources nothing is using, and shows roughly what each one costs per month.
+**It only reads. It never creates, changes or deletes anything.**
 
 ```console
 $ zombie-scanner --all-regions
@@ -53,7 +51,7 @@ happening. They just bill, every hour, indefinitely.
 go install github.com/Sachinxmpl/zombie-scanner@latest
 ```
 
-**Linux packages**
+**Linux packages** (use `arm64` instead of `amd64` if needed)
 
 ```bash
 VERSION=$(curl -s https://api.github.com/repos/Sachinxmpl/zombie-scanner/releases/latest \
@@ -72,12 +70,10 @@ curl -sLO ${BASE}/zombie-scanner_${VERSION}_linux_amd64.apk
 sudo apk add --allow-untrusted zombie-scanner_${VERSION}_linux_amd64.apk
 ```
 
-Replace `amd64` with `arm64` as needed.
+**Ready-made binaries** for Linux, macOS and Windows are on the
+[releases page](https://github.com/Sachinxmpl/zombie-scanner/releases).
 
-**Binaries** for Linux, macOS and Windows (amd64 and arm64) are attached to every
-[release](https://github.com/Sachinxmpl/zombie-scanner/releases).
-
-**From source** — requires Go 1.25.14 or later:
+**From source Code** (Go 1.25.14 or later)
 
 ```bash
 git clone https://github.com/Sachinxmpl/zombie-scanner
@@ -85,19 +81,15 @@ cd zombie-scanner
 make build
 ```
 
-### Verifying a release
+### Verifying the release
 
-Every release ships checksums and a cryptographic build attestation, so you can
-confirm a binary was built from a specific commit by this repository's workflow:
+Each release comes with a checksum file and a GitHub attestation that proves
+the file was built by this repository's release workflow:
 
 ```bash
 sha256sum -c checksums.txt --ignore-missing
-
-gh attestation verify zombie-scanner_0.1.1_linux_amd64.tar.gz \
-  --repo Sachinxmpl/zombie-scanner
+gh attestation verify zombie-scanner_*_linux_amd64.tar.gz --repo Sachinxmpl/zombie-scanner
 ```
-
-An SBOM accompanies each archive.
 
 ## Quick start
 
@@ -108,44 +100,108 @@ this works.
 ```bash
 zombie-scanner                                  # your default region
 zombie-scanner --region eu-west-1
-zombie-scanner --all-regions                    # every region you have enabled
+zombie-scanner --all-regions
 zombie-scanner --profile prod --all-regions
 ```
 
-**Filter the noise**
-
+**Available Commands**
 ```bash
-zombie-scanner --min-cost 10                    # only findings above $10/month
-zombie-scanner --confidence high                # only what the API stated outright
-zombie-scanner --only ebs-unattached,nat-idle   # pick your checks
-zombie-scanner --skip snapshot-aged
+zombie-scanner [command]
+
+  scan        Scan for zombie resources (default action)
+  help        Help about any command
+  detectors   List the available detectors
+  iam-policy  Print the minimal IAM policy this tool needs
+  render      Re-render a saved JSON report in another format
+  version     Print the version
 ```
 
-**Tune the thresholds**
+**Filters**
+
+```bash
+zombie-scanner --min-cost 10                    # only things costing over $10/month
+zombie-scanner --confidence high                # only the surest findings
+zombie-scanner --only ebs-unattached,nat-idle   # only these checks
+zombie-scanner --skip snapshot-aged             # everything except this check
+```
+
+**Change the limits**
 
 ```bash
 zombie-scanner --snapshot-age-days 180 --stopped-days 60 --idle-window-days 30
 ```
 
-**Explain the numbers**
+**See how each cost was derived**
 
 ```bash
-zombie-scanner -v                               # shows how each cost was derived
+zombie-scanner -v
 ```
 
-Every flag is also settable through the environment, which is convenient in CI:
-
-```bash
+Every flag can also be set with an environment variable:
+```
 ZOMBIE_SCANNER_MIN_COST=25 zombie-scanner --all-regions
 ```
-
 Precedence is `flag > environment > default`.
 
-Run `zombie-scanner --help` for the full surface, `zombie-scanner detectors` to
-see what each check looks for, and `zombie-scanner iam-policy` for the
-permissions it needs.
 
-## What it detects
+## Hiding things you want to keep
+
+Some "zombies" are on purpose, like a standby database. There are three ways to
+stop seeing them.
+
+**1. Tag the resource** with `zombie-scanner:keep`. Any value works; write why.
+
+```bash
+aws ec2 create-tags --resources vol-0abc --tags Key=zombie-scanner:keep,Value="DR standby"
+```
+
+Use `--keep-tag` to pick a different tag name, or `--no-keep-tag` to show
+everything.
+
+**2. Add an ignore rule** in `.zombie-scanner.yaml`. It reads from the current
+folder first, then your home folder.
+
+```yaml
+min-cost: 1
+idle-window-days: 30
+
+ignore:
+  - id: vol-0abc
+    reason: kept for the quarterly restore test
+  - detector: snapshot-aged
+    region: eu-west-1
+    reason: compliance keeps these for 7 years
+```
+
+Each rule needs a `reason` and at least one of `id`, `detector` or `region`. If a
+rule matched nothing, the tool tells you, so old rules don't pile up. The file
+can also hold your usual settings: `region`, `profile`, `output`, `min-cost`,
+`confidence`, `keep-tag` and the three limits. A flag or environment variable
+beats the file. Use `--no-config` to ignore the file.
+
+**3. Point it at your Terraform state.** Anything Terraform manages is there on
+purpose, so it is hidden:
+
+```bash
+zombie-scanner --tf-state ./terraform.tfstate
+zombie-scanner --tf-state ./states/              # every .tfstate file in the folder
+```
+
+Whatever is hidden is counted at the bottom of the report, e.g. "3 hidden by
+--min-cost", so nothing disappears silently.
+
+## Several accounts
+
+```bash
+zombie-scanner --accounts 111111111111,222222222222 --all-regions
+```
+
+This scans your own account, plus each listed account by assuming the role
+`ZombieScannerReadOnly` in it (change it with `--role-name`). That role needs the
+policy from `zombie-scanner iam-policy` and must trust your account. With more
+than one account, the report adds an Account column.
+
+## What it checks
 
 | Detector             | Confidence | What it looks for                              | Cost basis              |
 | -------------------- | ---------- | ---------------------------------------------- | ----------------------- |
@@ -211,24 +267,18 @@ checked and the report says how many could not be read.
 
 ## Confidence levels
 
-Two findings are not equally certain, and presenting them identically is how a
-scanner loses its users. Every finding carries a level:
+Every finding says how sure the tool is:
 
-| Level      | Meaning                                  | Example                       |
-| ---------- | ---------------------------------------- | ----------------------------- |
-| **HIGH**   | Orphaned by definition — the API says so | Unattached volume, idle EIP   |
-| **MEDIUM** | Idle according to metrics over a window  | NAT with no bytes for 14 days |
-| **LOW**    | A heuristic that needs human judgment    | Snapshot older than 90 days   |
+| Level      | Meaning                                 | Example                          |
+| ---------- | --------------------------------------- | -------------------------------- |
+| **HIGH**   | AWS says outright it is unused          | a disk attached to nothing       |
+| **MEDIUM** | Usage graphs show no real use for days  | a NAT with no traffic in 14 days |
+| **LOW**    | Probably unused; a person should check  | a snapshot older than 90 days    |
 
-Two rules outrank every feature in this tool:
+Two rules are never broken:
 
-1. **A resource younger than the metric window is never judged.** No history, no verdict.
-2. **Missing metric data is never evidence of idleness.** No data means *unknown*, not *idle*.
-
-If CloudWatch returns nothing for a load balancer — a wrong dimension, a missing
-permission, an outage — the tool stays quiet rather than reporting every load
-balancer in your account as unused. That behaviour is covered by tests, because
-it is the failure that would matter most.
+1. **Something newer than the lookback window is never judged.** Too little history to tell.
+2. **No usage data does not mean unused.** If CloudWatch returns nothing, the tool says nothing.
 
 ## Use it in CI
 
@@ -238,18 +288,12 @@ zombie-scanner --all-regions --fail-if-above 100
 
 | Exit code | Meaning                                          |
 | --------- | ------------------------------------------------ |
-| `0`       | Scan completed (zombies may exist)               |
-| `1`       | Fatal — no credentials, bad flags                |
-| `2`       | Scan succeeded, spend exceeded `--fail-if-above` |
+| `0`       | Scan finished (zombies may exist)                |
+| `1`       | Error: no credentials, bad flags                 |
+| `2`       | Scan finished, spend was above `--fail-if-above` |
 
-```yaml
-- name: Check for zombie AWS spend
-  run: zombie-scanner --all-regions --fail-if-above 100
-```
-
-A missing permission degrades the report rather than failing the run — you still
-get every check that could run, plus a note naming the actions to grant. Pass
-`--strict` if you would rather an incomplete scan fail the build.
+If a permission is missing, that check is skipped with a note saying what to
+allow, and the rest still run. Add `--strict` to fail instead.
 
 ### GitHub Action
 
@@ -260,24 +304,23 @@ get every check that could run, plus a note naming the actions to grant. Pass
     fail-if-above: "50"   # optional
 ```
 
-The Action downloads the release matching its own tag, checks it against
-`checksums.txt` and its build attestation, and only then runs it. The report goes
-to the job summary, and later steps can read `monthly-usd`, `count` and `report`
-(the JSON file's path). A check that could not run is a warning, not a failure -
-add `--strict` to `args` if you want it to fail the job.
+The Action downloads the matching release, checks it is genuine, runs the scan
+and puts the report on the job's summary page. Later steps can read
+`monthly-usd`, `count` and `report` (the path of the JSON file). A skipped check
+shows as a warning; add `--strict` to `args` to fail the job instead.
 
-A complete weekly workflow with OIDC login:
+A full weekly workflow that logs in to AWS without stored keys:
 [docs/examples/scheduled-scan.yml](docs/examples/scheduled-scan.yml).
 
-### Scan once, render many times
+### Scan once, show it many ways
 
 ```bash
-zombie-scanner scan --output json > report.json
+zombie-scanner --output json > report.json
 zombie-scanner render report.json --output markdown
 ```
 
-`render` makes no AWS calls. It reads a saved report, or stdin, and prints it as a
-table, JSON or Markdown.
+`render` does not touch AWS. It prints a saved report as a table, JSON or
+Markdown.
 
 ## JSON output
 
@@ -289,20 +332,21 @@ zombie-scanner --json | jq -r '.findings[] | select(.confidence == "HIGH") | .re
 ```json
 {
   "schema_version": "1",
-  "tool": { "name": "zombie-scanner", "version": "0.1.1", "commit": "30a69f0" },
+  "tool": { "name": "zombie-scanner", "version": "0.2.0", "commit": "b1b2aa5" },
   "account_id": "123456789012",
+  "accounts": ["123456789012"],
   "regions": ["us-east-1"],
   "findings": [
     {
       "resource_id": "vol-01aa332c9f5cd7872",
       "resource_type": "ebs-volume",
       "region": "us-east-1",
+      "account_id": "123456789012",
       "detector": "ebs-unattached",
       "confidence": "HIGH",
       "reason": "Unattached; created 412 days ago (100 GiB gp3)",
       "monthly_cost_usd": 8,
-      "cost_basis": "100 GiB x $0.080/GiB-mo x 1.00 (us-east-1)",
-      "metadata": { "size_gib": "100", "volume_type": "gp3" }
+      "cost_basis": "100 GiB x $0.080/GiB-mo x 1.00 (us-east-1)"
     }
   ],
   "errors": [],
@@ -315,82 +359,41 @@ zombie-scanner --json | jq -r '.findings[] | select(.confidence == "HIGH") | .re
 }
 ```
 
-Keys are `snake_case` and stable within a major version; `schema_version` tells
-you which contract you are reading. `findings` and `errors` are always arrays,
-never `null`. `errors` is included deliberately so a script can distinguish
-"a clean account" from "the scan could not see anything".
+`findings` and `errors` are always lists, never `null`. Check `errors` to tell
+"nothing found" apart from "couldn't look". Field names only change if
+`schema_version` changes.
 
 ## Permissions
 
 ```bash
-zombie-scanner iam-policy
+zombie-scanner iam-policy                       # the policy for every check
+zombie-scanner iam-policy --only ebs-unattached # just for one check
 ```
 
-The policy is **generated from the code**: each check declares the API calls it
-makes, and the policy is the union of them. It cannot drift from what the tool
-actually does, and CI fails the build if the published copy falls out of date.
+The policy is built from the code, so it always matches what the tool calls.
+A copy is in [docs/iam-policy.json](docs/iam-policy.json). Every action in it is
+a `Describe`, `Get` or `List`. AWS's `ReadOnlyAccess` policy also works, but
+allows far more.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "cloudwatch:GetMetricData",
-      "ec2:DescribeAddresses",
-      "ec2:DescribeImages",
-      "ec2:DescribeInstances",
-      "ec2:DescribeNatGateways",
-      "ec2:DescribeRegions",
-      "ec2:DescribeSnapshots",
-      "ec2:DescribeVolumes",
-      "elasticloadbalancing:DescribeLoadBalancers",
-      "sts:GetCallerIdentity"
-    ],
-    "Resource": "*"
-  }]
-}
-```
+## Read-only, and checked
 
-`Resource` is `"*"` because the EC2 `Describe*` actions do not support
-resource-level permissions. AWS's managed `ReadOnlyAccess` also works if you
-prefer a managed policy, though it grants considerably more than this.
+There is no `--delete` flag and there won't be. A wrong report is annoying; a
+wrong delete is an outage. You decide what to delete.
 
-Want less? `zombie-scanner iam-policy --only ebs-unattached` prints a policy for
-just that check.
+CI checks this on every change:
 
-## Read-only, and provable
+- every AWS call the tool can make must be a `Describe`, `Get` or `List`
+- only one package is allowed to talk to AWS, so nothing can go around that rule
+- known write calls are on a blocklist
+- the checking and pricing code can't use the AWS SDK at all
 
-There is no `--delete` flag, and there will not be one.
-
-> A scanner with a false positive is an annoyance.
-> A deleter with a false positive is an outage.
-
-The tool reports, you decide, your existing tooling executes. That boundary is
-enforced rather than promised:
-
-- **Every AWS call the tool can make** is declared in four narrow Go interfaces.
-  CI fails the build if any method on them is not a `Describe`, `Get` or `List`.
-- **Only one package may construct an AWS SDK client.** CI fails the build if any
-  other package does, so nothing can bypass those interfaces.
-- **Known mutating operations** are denylisted in a build check.
-- **The detection and pricing packages** must have no dependency on the AWS SDK
-  at all. CI fails the build if that changes.
-
-Those are [scripts you can read](scripts/) and checks you can watch go green on
-every pull request, not claims you have to take on faith. Release binaries also
-carry build provenance attestation — see [Verifying a release](#verifying-a-release).
+See [scripts/](scripts/).
 
 ## About the numbers
 
-Costs are estimates against public list prices, and every figure is labelled as
-one. They come from a small [embedded table](price/rates.json) rather than the
-AWS Pricing API, because a number a human is about to eyeball is better
-approximately right and instant than precisely right and slow.
-
-Your real bill is probably lower — enterprise discounts, savings plans and
-private pricing all apply. Every finding shows its arithmetic so you can check
-it:
+Prices come from AWS's public list prices, stored in
+[price/rates.json](price/rates.json). Your real bill may be lower because of
+discounts or savings plans. Use `-v` to see the sum behind each number:
 
 ```console
 $ zombie-scanner -v
@@ -398,10 +401,7 @@ vol-01aa332c9f5cd7872  ebs-volume  us-east-1  HIGH  $8.00  Unattached; created 4
                        100 GiB x $0.080/GiB-mo x 1.00 (us-east-1)
 ```
 
-Snapshot costs are upper bounds — snapshots bill incrementally, and the tool
-prices them at full size and says so.
-
-## How it compares
+## Similar tools
 
 | Tool                                                | What it does                                 | How this differs                                                 |
 | --------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
@@ -412,52 +412,24 @@ prices them at full size and says so.
 | [infracost](https://www.infracost.io)               | Cost of Terraform changes before apply       | This looks at what is already running                            |
 | Trusted Advisor                                     | AWS's own                                    | Paywalled tiers, console-first, no CLI, no exit code             |
 
-The complement worth stating: **zombie-scanner finds it, you decide, awsweeper or
-aws-nuke executes.**
-
-## Roadmap
-
-- **v0.2 — Ignore rules.** A `zombie-scanner:keep` tag and a
-  `.zombie-scanner.yaml` config, so a deliberate DR standby stops appearing.
-- **v0.3 — Terraform drift.** `--tf-state` flags every live resource that appears
-  in no state file. `terraform plan` catches drift in one direction; almost
-  nothing catches this one.
-- **v0.4 — CI mode.** A published GitHub Action, a Slack renderer, scheduled
-  scans, and multi-account support via assume-role.
-
-Deferred checks: idle RDS, empty target groups, unused security groups, orphaned
-ENIs, old ECR images, unattached EFS.
-
 ## Contributing
 
-Bug reports and detector ideas are welcome. **If you find a false positive, that
-is the most valuable issue you can file** — the confidence model exists precisely
-to prevent them, and a real one means the model has a gap.
+Bug reports and ideas for new checks are welcome. **A false positive (something
+flagged that is actually in use) is the most useful bug you can report.**
 
 ```bash
 make build      # compile
-make test       # go test -race -count=1 ./...
-make lint       # golangci-lint
-make verify     # the read-only and architecture gates
+make test       # run the tests
+make lint       # run the linter
+make verify     # the read-only checks
 make check      # everything CI runs
 ```
 
-The codebase is one package per pipeline stage — `collect` talks to AWS, `detect`
-decides what a zombie is, `price` handles money, `render` handles output — and CI
-enforces that the pure stages never gain a dependency on the AWS SDK. A new
-detector is one new file and no edits to existing ones.
-
 ## Security
 
-zombie-scanner runs with read-only credentials and makes no outbound calls other
-than to AWS API endpoints. No telemetry, no phoning home. See
-[SECURITY.md](SECURITY.md) to report a vulnerability.
-
-## Status
-
-Pre-1.0. The Go API and the JSON output may change between `v0.x` releases; the
-JSON keys will not change within a major version.
+It needs only read access, and talks to nothing but AWS. No tracking. To report a
+problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Released under the [LICENSE](LICENSE).
