@@ -21,13 +21,14 @@ func (instanceStopped) Name() string {
 }
 
 func (instanceStopped) Describe() string {
-	return "Stopped instances whose attached EBS volumes keep billing at full price"
+	return "Stopped instances whose attached EBS volumes and Elastic IPs keep billing"
 }
 
 func (instanceStopped) Needs() []string {
 	return []string{
 		"ec2:DescribeInstances",
 		"ec2:DescribeVolumes",
+		"ec2:DescribeAddresses",
 	}
 }
 
@@ -43,6 +44,15 @@ func (instanceStopped) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding
 	for _, v := range inv.Volumes {
 		byID[v.ID] = v
 	}
+
+	// an automatic public IP is released on stop, an Elastic IP stays and bills
+	ipsByInstance := map[string][]string{}
+	for _, a := range inv.Addresses {
+		if a.InstanceID != "" {
+			ipsByInstance[a.InstanceID] = append(ipsByInstance[a.InstanceID], a.PublicIP)
+		}
+	}
+	addressesKnown := !inv.Missing("ec2:DescribeAddresses")
 
 	for _, i := range inv.Instances {
 		if i.State != "stopped" {
@@ -61,21 +71,20 @@ func (instanceStopped) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding
 			attached++
 		}
 
-		if attached == 0 {
+		ips := ipsByInstance[i.ID]
+		if attached == 0 && len(ips) == 0 {
 			continue
 		}
 
 		conf := zombie.Medium
-		reason := fmt.Sprintf("Stopped, duration unknown (%s); %d attached volume(s) still billing",
-			i.Type, attached)
+		reason := fmt.Sprintf("Stopped, duration unknown (%s); %s", i.Type, stillBilling(attached, len(ips)))
 
 		if stoppedAt, ok := parseStopTime(i.StateTransitionReason); ok {
 			days := inv.AgeDays(stoppedAt)
 			if days < cfg.StoppedDays {
 				continue
 			}
-			reason = fmt.Sprintf("Stopped %d days ago (%s); %d attached volume(s) still billing",
-				days, i.Type, attached)
+			reason = fmt.Sprintf("Stopped %d days ago (%s); %s", days, i.Type, stillBilling(attached, len(ips)))
 		} else {
 			// never invent a duration from LaunchTime, downgrade instead
 			conf = zombie.Low
@@ -90,13 +99,32 @@ func (instanceStopped) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding
 		}
 		f.Meta("instance_type", i.Type)
 		f.Meta("volume_count", strconv.Itoa(attached))
-		f.Meta("volume_sizes_gib", strings.Join(sizes, ","))
-		f.Meta("volume_types", strings.Join(types, ","))
+		if attached > 0 {
+			f.Meta("volume_sizes_gib", strings.Join(sizes, ","))
+			f.Meta("volume_types", strings.Join(types, ","))
+		}
+		if len(ips) > 0 {
+			f.Meta("elastic_ips", strings.Join(ips, ","))
+		}
+		if !addressesKnown {
+			f.Meta("elastic_ips_unknown", "true")
+		}
 
 		out = append(out, f)
 	}
 
 	return out
+}
+
+func stillBilling(volumes, ips int) string {
+	parts := []string{}
+	if volumes > 0 {
+		parts = append(parts, fmt.Sprintf("%d attached volume(s)", volumes))
+	}
+	if ips > 0 {
+		parts = append(parts, fmt.Sprintf("%d Elastic IP(s)", ips))
+	}
+	return strings.Join(parts, " and ") + " still billing"
 }
 
 // "User initiated (2026-03-14 09:21:15 GMT)"

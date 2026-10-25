@@ -39,6 +39,7 @@ func toVolume(v ec2types.Volume) zombie.Volume {
 
 func toAddress(a ec2types.Address) zombie.Address {
 	return zombie.Address{
+		InstanceID:    aws.ToString(a.InstanceId),
 		AllocationID:  aws.ToString(a.AllocationId),
 		PublicIP:      aws.ToString(a.PublicIp),
 		AssociationID: aws.ToString(a.AssociationId),

@@ -8,6 +8,12 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ## [Unreleased]
 
+### Fixed
+
+- `instance-stopped` now adds the cost of Elastic IPs attached to a stopped
+  instance ($3.65/month each). Before, it counted only the disks. A stopped
+  instance with no disks but an Elastic IP is now reported too.
+
 ## [0.2.0] - 2026-10-23
 
 **Twelve checks, ways to hide what you want to keep, several accounts at once,
