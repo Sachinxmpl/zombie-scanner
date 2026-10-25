@@ -210,7 +210,7 @@ than one account, the report adds an Account column.
 | `efs-unused`         | HIGH       | File systems with no mount targets             | size × per-tier rate    |
 | `kms-key-disabled`   | HIGH       | Disabled customer-managed encryption keys      | flat $1/key             |
 | `rds-stopped`        | HIGH       | Stopped databases still paying for storage     | allocated GiB × rate    |
-| `instance-stopped`   | MEDIUM     | Stopped instances still paying for their disks | sum of attached volumes |
+| `instance-stopped`   | MEDIUM     | Stopped instances still paying for disks, IPs  | volumes + Elastic IPs   |
 | `rds-idle`           | MEDIUM     | Running databases nothing connected to         | class $/hr × 730 + storage |
 | `nat-idle`           | MEDIUM     | NAT gateways below an outbound-bytes floor     | hourly × 730            |
 | `elb-idle`           | MEDIUM     | ALBs below a request-count floor               | hourly × 730            |
@@ -229,9 +229,9 @@ paying storage the whole time and compute for the gaps. The finding tells you
 the exact date AWS will restart it.
 
 **`instance-stopped`** surprises people. Stopping an instance stops the compute
-charge — the attached EBS volumes keep billing at full price, indefinitely. A
-stopped `t3.large` with a 500 GiB root volume is roughly $50/month that looks
-free in the console.
+charge — the attached EBS volumes keep billing at full price, indefinitely, and
+so does any Elastic IP on it ($3.65/month each). A stopped `t3.large` with a
+500 GiB root volume is roughly $50/month that looks free in the console.
 
 **`efs-unused`** finds network file systems nothing can reach. A mount target
 is the only way into EFS, so none means no server can read or write it — yet
