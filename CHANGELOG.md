@@ -8,6 +8,12 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ## [Unreleased]
 
+### Security
+
+- The tool now refuses any AWS call that isn't a `Describe`, `Get` or `List`
+  while it runs, before anything is sent. Until now this was only checked in
+  CI. `sts:AssumeRole`, used by `--accounts`, is the one exception.
+
 ### Fixed
 
 - `instance-stopped` now adds the cost of Elastic IPs attached to a stopped

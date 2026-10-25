@@ -99,4 +99,14 @@ else
   echo "ok credential assumption stays inside awsapi"
 fi
 
+#5. The run-time guard refuses any non-read call before it is sent.
+#  tests prove the guard works; this proves every client gets it.
+echo "-> the run-time read-only guard is installed"
+if grep -q 'cfg.APIOptions = append(cfg.APIOptions, ReadOnly)' awsapi/config.go; then
+  echo "ok the run-time read-only guard is installed"
+else
+  echo "x awsapi.New no longer adds the ReadOnly guard to the AWS config"
+  fail=1
+fi
+
 exit $fail

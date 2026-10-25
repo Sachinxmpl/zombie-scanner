@@ -24,6 +24,12 @@ That property is enforced in CI, not merely documented:
 - **`scripts/check-arch.sh`** fails the build if the detection or pricing
   packages gain a dependency on the AWS SDK at all.
 
+It is also enforced at run time. Every AWS client carries a guard
+([`awsapi/readonly.go`](awsapi/readonly.go)) that refuses any operation other
+than `Describe`/`Get`/`List` before the request is signed or sent. The only
+exception is `sts:AssumeRole`, used by `--accounts` to fetch temporary
+credentials. CI checks that the guard stays installed.
+
 Every AWS call the tool is capable of making is declared in four interfaces in
 [`awsapi/api.go`](awsapi/api.go). That file is the complete attack surface, and
 it is twelve declarations long.
