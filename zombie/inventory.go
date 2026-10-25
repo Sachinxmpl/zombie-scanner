@@ -94,6 +94,7 @@ type Address struct {
 	AllocationID  string
 	PublicIP      string
 	AssociationID string // empty -> unassociated
+	InstanceID    string // empty if not on an instance
 	Tags          map[string]string
 }
 

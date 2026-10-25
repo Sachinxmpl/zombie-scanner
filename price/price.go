@@ -250,24 +250,28 @@ func priceSnapshot(f *zombie.Finding, r Rates) {
 	f.Meta("price_upper_bound", "true")
 }
 
-// A stopped instance's compute is free, the cost is its attached volumes.
+// A stopped instance's compute is free, the cost is its attached volumes and Elastic IPs.
 func priceStoppedInstance(f *zombie.Finding, r Rates) {
 	rawSizes := f.Metadata["volume_sizes_gib"]
 	rawTypes := f.Metadata["volume_types"]
-	if rawSizes == "" || rawTypes == "" {
+	rawIPs := f.Metadata["elastic_ips"]
+	if (rawSizes == "" || rawTypes == "") && rawIPs == "" {
 		f.CostBasis = "unknown volume sizes not priced"
 		return
 	}
 
-	sizes := strings.Split(rawSizes, ",")
-	types := strings.Split(rawTypes, ",")
+	var sizes, types []string
+	if rawSizes != "" && rawTypes != "" {
+		sizes = strings.Split(rawSizes, ",")
+		types = strings.Split(rawTypes, ",")
+	}
 	if len(sizes) != len(types) {
 		f.CostBasis = "mismatched volume metadata not priced"
 		return
 	}
 
 	var total float64
-	parts := make([]string, 0, len(sizes))
+	parts := make([]string, 0, len(sizes)+1)
 	for i := range sizes {
 		gib, err := strconv.Atoi(sizes[i])
 		if err != nil || gib <= 0 {
@@ -282,9 +286,18 @@ func priceStoppedInstance(f *zombie.Finding, r Rates) {
 		parts = append(parts, fmt.Sprintf("%d GiB %s", gib, types[i]))
 	}
 
+	if rawIPs != "" {
+		n := len(strings.Split(rawIPs, ","))
+		total += float64(n) * r.ElasticIPMonth * r.RegionMultiplier
+		parts = append(parts, fmt.Sprintf("%d Elastic IP x $%.2f/mo", n, r.ElasticIPMonth))
+	}
+
 	f.MonthlyCost = total
-	f.CostBasis = fmt.Sprintf("%s x %.2f (%s), attached volumes only - compute is free",
+	f.CostBasis = fmt.Sprintf("%s x %.2f (%s), compute is free",
 		strings.Join(parts, " + "), r.RegionMultiplier, r.Region)
+	if f.Metadata["elastic_ips_unknown"] == "true" {
+		f.CostBasis += " [Elastic IPs not checked]"
+	}
 }
 
 // NAT gateways bill hourly for existing, before any data processing charges
