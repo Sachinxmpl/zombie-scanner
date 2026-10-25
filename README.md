@@ -387,6 +387,10 @@ CI checks this on every change:
 - known write calls are on a blocklist
 - the checking and pricing code can't use the AWS SDK at all
 
+And while it runs, the tool refuses any AWS call that isn't a `Describe`, `Get`
+or `List` before it is sent. The one exception is `sts:AssumeRole`, which
+`--accounts` uses to log in to your other accounts. It creates nothing.
+
 See [scripts/](scripts/).
 
 ## About the numbers

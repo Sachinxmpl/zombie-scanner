@@ -64,6 +64,8 @@ func New(ctx context.Context, o Options) (Factory, error) {
 		)
 	}
 
+	cfg.APIOptions = append(cfg.APIOptions, ReadOnly)
+
 	if o.AssumeRoleARN != "" {
 		cfg.Credentials = aws.NewCredentialsCache(
 			stscreds.NewAssumeRoleProvider(
