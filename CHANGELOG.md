@@ -16,6 +16,10 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ### Fixed
 
+- `--all-regions` failed with "if any flags in the group [region all-regions]
+  are set…" when the config file or `ZOMBIE_SCANNER_REGION` set a region. That
+  region is now only the starting region. Typing `--region` and `--all-regions`
+  together is still an error.
 - `instance-stopped` now adds the cost of Elastic IPs attached to a stopped
   instance ($3.65/month each). Before, it counted only the disks. A stopped
   instance with no disks but an Elastic IP is now reported too.
