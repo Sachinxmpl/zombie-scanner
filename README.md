@@ -141,7 +141,9 @@ Every flag can also be set with an environment variable:
 ```
 ZOMBIE_SCANNER_MIN_COST=25 zombie-scanner --all-regions
 ```
-Precedence is `flag > environment > default`.
+Precedence is `flag > environment > config file > default`. A region set in the
+environment or the config file is only a default: `--all-regions` still scans
+every region.
 
 
 ## Hiding things you want to keep

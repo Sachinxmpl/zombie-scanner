@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -111,10 +112,10 @@ It never creates, modifies, or deletes anything.`,
 	pf.StringSliceVar(&o.Accounts, "accounts", nil, "also scan these account IDs by assuming --role-name in each")
 	pf.StringVar(&o.RoleName, "role-name", "ZombieScannerReadOnly", "role to assume in each --accounts entry")
 
-	// --region and --all-regions are mutually exclusive
-	root.MarkFlagsMutuallyExclusive("region", "all-regions")
-
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if cmd.Flags().Changed("region") && cmd.Flags().Changed("all-regions") {
+			return errors.New("--region and --all-regions cannot be used together")
+		}
 		if err := applyEnv(cmd); err != nil {
 			return err
 		}
