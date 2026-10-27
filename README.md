@@ -407,6 +407,27 @@ vol-01aa332c9f5cd7872  ebs-volume  us-east-1  HIGH  $8.00  Unattached; created 4
                        100 GiB x $0.080/GiB-mo x 1.00 (us-east-1)
 ```
 
+**Using your own prices.** If you pay less, put your prices in a JSON file and
+pass it with `--rates` (or `ZOMBIE_SCANNER_RATES`, or `rates:` in the config
+file). List only the prices that differ; the rest keep the built-in value. Use
+the same keys as [price/rates.json](price/rates.json):
+
+```json
+{
+  "_notes": "our 20% EDP discount",
+  "elastic_ip_month": 2.92,
+  "ebs_per_gib_month": { "gp3": 0.064 }
+}
+```
+
+```bash
+zombie-scanner --rates my-prices.json
+```
+
+A misspelt key, a negative price or a broken file is an error before anything is
+sent to AWS. Keys starting with `_` are notes. The report footer and the JSON
+`prices` field say which prices were used.
+
 ## Similar tools
 
 | Tool                                                | What it does                                 | How this differs                                                 |
