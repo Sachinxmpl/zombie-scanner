@@ -23,7 +23,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_SCAN_ROLE_ARN }}
           aws-region: us-east-1
 
-      - uses: Sachinxmpl/zombie-scanner@v0.2.0
+      - uses: Sachinxmpl/zombie-scanner@v0.3.0
         id: zombies
         with:
           args: --all-regions --min-cost 1

@@ -54,7 +54,7 @@ a signed record of how it was built:
 ```bash
 sha256sum -c checksums.txt --ignore-missing
 
-gh attestation verify zombie-scanner_0.2.0_linux_amd64.tar.gz \
+gh attestation verify zombie-scanner_0.3.0_linux_amd64.tar.gz \
   --repo Sachinxmpl/zombie-scanner
 ```
 

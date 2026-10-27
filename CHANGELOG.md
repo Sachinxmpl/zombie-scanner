@@ -8,6 +8,10 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-27
+
+**Your own prices, a run-time read-only guard, and three fixes.**
+
 ### Added
 
 - `--rates <file>` (also `ZOMBIE_SCANNER_RATES` and `rates:` in the config
@@ -134,7 +138,8 @@ First release. Six checks (`ebs-unattached`, `eip-unassociated`,
 output, several regions at once, confidence levels, a generated IAM policy, and
 signed releases. Read-only, and checked in CI.
 
-[Unreleased]: https://github.com/Sachinxmpl/zombie-scanner/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Sachinxmpl/zombie-scanner/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Sachinxmpl/zombie-scanner/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Sachinxmpl/zombie-scanner/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Sachinxmpl/zombie-scanner/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Sachinxmpl/zombie-scanner/releases/tag/v0.1.0

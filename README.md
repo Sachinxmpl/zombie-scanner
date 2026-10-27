@@ -300,7 +300,7 @@ allow, and the rest still run. Add `--strict` to fail instead.
 ### GitHub Action
 
 ```yaml
-- uses: Sachinxmpl/zombie-scanner@v0.2.0
+- uses: Sachinxmpl/zombie-scanner@v0.3.0
   with:
     args: --all-regions --min-cost 1
     fail-if-above: "50"   # optional
@@ -334,10 +334,11 @@ zombie-scanner --json | jq -r '.findings[] | select(.confidence == "HIGH") | .re
 ```json
 {
   "schema_version": "1",
-  "tool": { "name": "zombie-scanner", "version": "0.2.0", "commit": "b1b2aa5" },
+  "tool": { "name": "zombie-scanner", "version": "0.3.0", "commit": "b1b2aa5" },
   "account_id": "123456789012",
   "accounts": ["123456789012"],
   "regions": ["us-east-1"],
+  "prices": "built-in 2026-09-05",
   "findings": [
     {
       "resource_id": "vol-01aa332c9f5cd7872",
