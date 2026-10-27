@@ -112,9 +112,17 @@ func Table(w io.Writer, r zombie.Report, o TableOptions) error {
 
 	fmt.Fprintf(w, "\n%d zombie%s · estimated zombie spend ~$%.2f/month%s · %s\n",
 		r.Summary.ZombieCount, plural(r.Summary.ZombieCount),
-		r.Summary.TotalMonthlyUSD, hidden, dim.Render("figures are estimates"))
+		r.Summary.TotalMonthlyUSD, hidden, dim.Render(estimateNote(r)))
 
 	return nil
+}
+
+// a reader comparing two reports must be able to see why the numbers differ
+func estimateNote(r zombie.Report) string {
+	if strings.HasPrefix(r.Prices, "custom") {
+		return "figures are estimates, using prices from " + strings.TrimPrefix(r.Prices, "custom: ")
+	}
+	return "figures are estimates"
 }
 
 // Errors writes partial failures. stderr only.

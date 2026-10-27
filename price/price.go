@@ -3,7 +3,11 @@ package price
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -22,10 +26,13 @@ const fallbackVolumeType = "gp2"
 // RDS storage types span $0.100-$0.125/GiB-mo, so a fallback is wrong by at most 25%.
 const fallbackRDSStorageType = "gp2"
 
-// mirros rates.json
-type table struct {
+// mirrors rates.json
+type Table struct {
 	Updated string `json:"_updated"`
 	Source  string `json:"_source"`
+
+	// where the prices came from, also shown in the report
+	Label string `json:"-"`
 
 	EBSPerGiBMonth        map[string]float64 `json:"ebs_per_gib_month"`
 	RDSStoragePerGiBMonth map[string]float64 `json:"rds_storage_per_gib_month"`
@@ -43,13 +50,106 @@ type table struct {
 	DefaultRegionMultiplier float64            `json:"default_region_multiplier"`
 }
 
-var base table
+// read-only; anything that changes prices works on its own copy from Default
+var base = Default()
 
-func init() {
-	// rates.json is embedded at build time to reatesJSON
-	if err := json.Unmarshal(ratesJSON, &base); err != nil {
+// Default returns a fresh copy of the built-in prices.
+func Default() *Table {
+	t := &Table{}
+	// rates.json is embedded at build time to ratesJSON
+	if err := json.Unmarshal(ratesJSON, t); err != nil {
 		panic("prices: rates.json is invalid: " + err.Error())
 	}
+	t.Label = "built-in " + t.Updated
+	return t
+}
+
+// Load lays a user's price file over the built-in prices
+// Keys it leaves out keep the built-in value ,keys starting with "_" are notes and are skipped.
+func Load(path string) (*Table, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("--rates: %w", err)
+	}
+
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return nil, fmt.Errorf("--rates %s: %w", path, err)
+	}
+	known := knownKeys()
+	var unknown []string
+	for k := range keys {
+		if !strings.HasPrefix(k, "_") && !known[k] {
+			unknown = append(unknown, k)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return nil, fmt.Errorf("--rates %s: unknown key(s) %s", path, strings.Join(unknown, ", "))
+	}
+
+	t := Default()
+	if err := json.Unmarshal(raw, t); err != nil {
+		return nil, fmt.Errorf("--rates %s: %w", path, err)
+	}
+	if err := t.validate(); err != nil {
+		return nil, fmt.Errorf("--rates %s: %w", path, err)
+	}
+	t.Label = "custom: " + filepath.Base(path)
+	return t, nil
+}
+
+func knownKeys() map[string]bool {
+	raw, _ := json.Marshal(base)
+	var m map[string]json.RawMessage
+	_ = json.Unmarshal(raw, &m)
+	out := make(map[string]bool, len(m))
+	for k := range m {
+		out[k] = true
+	}
+	return out
+}
+
+func (t *Table) validate() error {
+	single := map[string]float64{
+		"snapshot_per_gib_month":    t.SnapshotPerGiBMonth,
+		"elastic_ip_month":          t.ElasticIPMonth,
+		"nat_gateway_month":         t.NATGatewayMonth,
+		"alb_month":                 t.ALBMonth,
+		"rds_backup_per_gib_month":  t.RDSBackupPerGiBMonth,
+		"kms_key_month":             t.KMSKeyMonth,
+		"ecr_per_gib_month":         t.ECRPerGiBMonth,
+		"default_region_multiplier": t.DefaultRegionMultiplier,
+	}
+	maps := map[string]map[string]float64{
+		"ebs_per_gib_month":         t.EBSPerGiBMonth,
+		"rds_storage_per_gib_month": t.RDSStoragePerGiBMonth,
+		"rds_instance_hour":         t.RDSInstanceHour,
+		"efs_per_gib_month":         t.EFSPerGiBMonth,
+		"region_multipliers":        t.RegionMultipliers,
+	}
+
+	var bad []string
+	for name, v := range single {
+		if v < 0 {
+			bad = append(bad, name)
+		}
+	}
+	for name, m := range maps {
+		if m == nil {
+			return fmt.Errorf("%s cannot be null", name)
+		}
+		for k, v := range m {
+			if v < 0 {
+				bad = append(bad, name+"."+k)
+			}
+		}
+	}
+	if len(bad) > 0 {
+		sort.Strings(bad)
+		return errors.New("negative price(s): " + strings.Join(bad, ", "))
+	}
+	return nil
 }
 
 // Data price table aws last reviewed
@@ -75,24 +175,28 @@ type Rates struct {
 	RegionMultiplier float64
 }
 
-// Returns Rates for a region
+// Returns Rates for a region from the built-in prices
 func For(region string) Rates {
-	mult, ok := base.RegionMultipliers[region]
+	return base.For(region)
+}
+
+func (t *Table) For(region string) Rates {
+	mult, ok := t.RegionMultipliers[region]
 	if !ok {
-		mult = base.DefaultRegionMultiplier
+		mult = t.DefaultRegionMultiplier
 	}
 	return Rates{
-		EBSPerGiBMonth:        base.EBSPerGiBMonth,
-		RDSStoragePerGiBMonth: base.RDSStoragePerGiBMonth,
-		RDSInstanceHour:       base.RDSInstanceHour,
-		SnapshotPerGiBMonth:   base.SnapshotPerGiBMonth,
-		ElasticIPMonth:        base.ElasticIPMonth,
-		NATGatewayMonth:       base.NATGatewayMonth,
-		ALBMonth:              base.ALBMonth,
-		RDSBackupPerGiBMonth:  base.RDSBackupPerGiBMonth,
-		EFSPerGiBMonth:        base.EFSPerGiBMonth,
-		KMSKeyMonth:           base.KMSKeyMonth,
-		ECRPerGiBMonth:        base.ECRPerGiBMonth,
+		EBSPerGiBMonth:        t.EBSPerGiBMonth,
+		RDSStoragePerGiBMonth: t.RDSStoragePerGiBMonth,
+		RDSInstanceHour:       t.RDSInstanceHour,
+		SnapshotPerGiBMonth:   t.SnapshotPerGiBMonth,
+		ElasticIPMonth:        t.ElasticIPMonth,
+		NATGatewayMonth:       t.NATGatewayMonth,
+		ALBMonth:              t.ALBMonth,
+		RDSBackupPerGiBMonth:  t.RDSBackupPerGiBMonth,
+		EFSPerGiBMonth:        t.EFSPerGiBMonth,
+		KMSKeyMonth:           t.KMSKeyMonth,
+		ECRPerGiBMonth:        t.ECRPerGiBMonth,
 		Region:                region,
 		RegionMultiplier:      mult,
 	}
@@ -114,9 +218,13 @@ var pricers = map[string]Pricer{
 	"ecr-image":      priceECRImage,
 }
 
-// Prices every finding for one region
+// Prices every finding for one region with the built-in prices
 func Apply(fs []zombie.Finding, region string) []zombie.Finding {
-	r := For(region)
+	return base.Apply(fs, region)
+}
+
+func (t *Table) Apply(fs []zombie.Finding, region string) []zombie.Finding {
+	r := t.For(region)
 
 	for i := range fs {
 		p, ok := pricers[fs[i].ResourceType]

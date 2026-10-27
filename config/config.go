@@ -29,6 +29,7 @@ type File struct {
 	IdleWindowDays  *int `yaml:"idle-window-days"`
 
 	KeepTag *string `yaml:"keep-tag"`
+	Rates   *string `yaml:"rates"`
 
 	Ignore []filter.IgnoreRule `yaml:"ignore"`
 
@@ -54,6 +55,7 @@ func (f *File) FlagValues() map[string]string {
 	set("min-cost", f.MinCost)
 	set("confidence", f.Confidence)
 	set("keep-tag", f.KeepTag)
+	set("rates", f.Rates)
 	setInt("snapshot-age-days", f.SnapshotAgeDays)
 	setInt("stopped-days", f.StoppedDays)
 	setInt("idle-window-days", f.IdleWindowDays)
