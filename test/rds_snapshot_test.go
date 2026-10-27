@@ -61,7 +61,7 @@ func TestRDSSnapshotUnderOneGiBKeepsItsRealSize(t *testing.T) {
 	if f.Metadata["size_is_instance_allocation"] == "true" {
 		t.Fatalf("fell back to the instance size although the real size is known")
 	}
-	if want := 500.0 / 1024 * 0.095; math.Abs(f.MonthlyCost-want) > 0.0001 {
+	if want := price.Cents(500.0 / 1024 * 0.095); math.Abs(f.MonthlyCost-want) > 0.0001 {
 		t.Errorf("cost = $%.4f, want $%.4f", f.MonthlyCost, want)
 	}
 	if !strings.Contains(f.Reason, "500.0 MiB") {

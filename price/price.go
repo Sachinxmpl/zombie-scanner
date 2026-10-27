@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -218,6 +219,11 @@ var pricers = map[string]Pricer{
 	"ecr-image":      priceECRImage,
 }
 
+// rounds to whole cents so the report holds 1.64, not 1.6400000000000001
+func Cents(usd float64) float64 {
+	return math.Round(usd*100) / 100
+}
+
 // Prices every finding for one region with the built-in prices
 func Apply(fs []zombie.Finding, region string) []zombie.Finding {
 	return base.Apply(fs, region)
@@ -233,6 +239,7 @@ func (t *Table) Apply(fs []zombie.Finding, region string) []zombie.Finding {
 			continue
 		}
 		p(&fs[i], r)
+		fs[i].MonthlyCost = Cents(fs[i].MonthlyCost)
 	}
 
 	return fs

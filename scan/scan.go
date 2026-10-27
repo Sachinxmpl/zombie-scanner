@@ -385,5 +385,9 @@ func summarize(fs []zombie.Finding) zombie.Summary {
 		s.ByConfidence[f.Confidence.String()]++
 		s.ByDetector[f.Detector] += f.MonthlyCost
 	}
+	s.TotalMonthlyUSD = price.Cents(s.TotalMonthlyUSD)
+	for k, v := range s.ByDetector {
+		s.ByDetector[k] = price.Cents(v)
+	}
 	return s
 }

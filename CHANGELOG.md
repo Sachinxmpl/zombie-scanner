@@ -25,6 +25,8 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ### Fixed
 
+- Dollar amounts in the JSON report are rounded to cents (`1.64` instead of
+  `1.6400000000000001`).
 - `--all-regions` failed with "if any flags in the group [region all-regions]
   are set…" when the config file or `ZOMBIE_SCANNER_REGION` set a region. That
   region is now only the starting region. Typing `--region` and `--all-regions`
