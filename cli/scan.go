@@ -13,6 +13,7 @@ import (
 	"github.com/Sachinxmpl/zombie-scanner/config"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
 	"github.com/Sachinxmpl/zombie-scanner/filter"
+	"github.com/Sachinxmpl/zombie-scanner/price"
 	"github.com/Sachinxmpl/zombie-scanner/render"
 	"github.com/Sachinxmpl/zombie-scanner/scan"
 	"github.com/Sachinxmpl/zombie-scanner/tfstate"
@@ -98,6 +99,13 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
+	prices := price.Default()
+	if o.Rates != "" {
+		if prices, err = price.Load(o.Rates); err != nil {
+			return err
+		}
+	}
+
 	cfg := detect.Defaults()
 	cfg.SnapshotAgeDays = o.SnapshotAgeDays
 	cfg.StoppedDays = o.StoppedDays
@@ -111,7 +119,8 @@ func runScan(cmd *cobra.Command, o options) error {
 		return err
 	}
 
-	eng := &scan.Engine{Accounts: accounts, Cfg: cfg, Filters: filters, Log: logger, Concurrency: o.Concurrency}
+	eng := &scan.Engine{Accounts: accounts, Cfg: cfg, Filters: filters, Log: logger, Concurrency: o.Concurrency,
+		Prices: prices}
 
 	opts := scan.Options{Only: o.Only, Skip: o.Skip, AllRegions: o.AllRegions}
 	if o.Region != "" {

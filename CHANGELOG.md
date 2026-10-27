@@ -8,6 +8,15 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ## [Unreleased]
 
+### Added
+
+- `--rates <file>` (also `ZOMBIE_SCANNER_RATES` and `rates:` in the config
+  file) replaces built-in prices with your own, e.g. after a discount. List
+  only the prices that differ. A misspelt key or a negative price is an error.
+  The report says which prices were used: a new `prices` field in the JSON
+  (nothing removed, so `schema_version` is still `"1"`) and a note in the
+  footer.
+
 ### Security
 
 - The tool now refuses any AWS call that isn't a `Describe`, `Get` or `List`

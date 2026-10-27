@@ -18,6 +18,7 @@ type Report struct {
 	Accounts      []string       `json:"accounts"`
 	ScannedAt     time.Time      `json:"scanned_at"`
 	Regions       []string       `json:"regions"`
+	Prices        string         `json:"prices"`
 	Findings      []Finding      `json:"findings"` // never null
 	Errors        []ScanError    `json:"errors"`   // never null
 	Summary       Summary        `json:"summary"`

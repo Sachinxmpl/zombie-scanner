@@ -50,6 +50,8 @@ type options struct {
 	TFState  []string
 	Accounts []string
 	RoleName string
+
+	Rates string
 }
 
 // builds the command tree
@@ -111,6 +113,8 @@ It never creates, modifies, or deletes anything.`,
 
 	pf.StringSliceVar(&o.Accounts, "accounts", nil, "also scan these account IDs by assuming --role-name in each")
 	pf.StringVar(&o.RoleName, "role-name", "ZombieScannerReadOnly", "role to assume in each --accounts entry")
+
+	pf.StringVar(&o.Rates, "rates", "", "JSON file of prices that replace the built-in ones")
 
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		if cmd.Flags().Changed("region") && cmd.Flags().Changed("all-regions") {
@@ -177,6 +181,7 @@ func applyEnv(cmd *cobra.Command) error {
 		"stopped-days":      "ZOMBIE_SCANNER_STOPPED_DAYS",
 		"idle-window-days":  "ZOMBIE_SCANNER_IDLE_WINDOW_DAYS",
 		"keep-tag":          "ZOMBIE_SCANNER_KEEP_TAG",
+		"rates":             "ZOMBIE_SCANNER_RATES",
 	} {
 		if cmd.Flags().Changed(flagName) {
 			continue

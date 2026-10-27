@@ -28,6 +28,9 @@ type Engine struct {
 	// no of parallel regions scans.
 	Concurrency int
 
+	// nil uses the built-in prices
+	Prices *price.Table
+
 	Clock func() time.Time
 }
 
@@ -58,6 +61,13 @@ func (e *Engine) now() time.Time {
 		return e.Clock()
 	}
 	return time.Now().UTC()
+}
+
+func (e *Engine) prices() *price.Table {
+	if e.Prices == nil {
+		e.Prices = price.Default()
+	}
+	return e.Prices
 }
 
 // Performs a complete scan
@@ -116,6 +126,7 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 		Accounts:  accounts,
 		ScannedAt: now,
 		Regions:   regions,
+		Prices:    e.prices().Label,
 		Findings:  []zombie.Finding{},
 		Errors:    []zombie.ScanError{},
 	}
@@ -328,7 +339,7 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 		e.log().Debug("step ok", "op", s.service+":"+s.operation, "took", time.Since(t0))
 	}
 
-	findings := price.Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)
+	findings := e.prices().Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)
 	findings, dropped := filter.Apply(findings, e.Filters)
 	return findings, dropped, errs
 }

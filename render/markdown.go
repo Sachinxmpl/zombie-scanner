@@ -107,8 +107,8 @@ func markdownFooter(w io.Writer, r zombie.Report, who string) {
 	if len(r.Regions) > 0 {
 		regions = strings.Join(r.Regions, ", ")
 	}
-	fmt.Fprintf(w, "<sub>%s · %s · scanned %s · figures are estimates</sub>\n",
-		who, mdCell(regions), r.ScannedAt.Format("2006-01-02 15:04 MST"))
+	fmt.Fprintf(w, "<sub>%s · %s · scanned %s · %s</sub>\n",
+		who, mdCell(regions), r.ScannedAt.Format("2006-01-02 15:04 MST"), mdCell(estimateNote(r)))
 }
 
 var cellEscaper = strings.NewReplacer(
