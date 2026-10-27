@@ -3,6 +3,7 @@ package scan
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -19,13 +20,16 @@ import (
 
 // engine runs a scan
 type Engine struct {
-	AWS     awsapi.Factory
-	Cfg     detect.Config
-	Filters []filter.Filter
-	Log     *slog.Logger
+	Accounts []awsapi.Factory
+	Cfg      detect.Config
+	Filters  []filter.Filter
+	Log      *slog.Logger
 
 	// no of parallel regions scans.
 	Concurrency int
+
+	// nil uses the built-in prices
+	Prices *price.Table
 
 	Clock func() time.Time
 }
@@ -59,25 +63,70 @@ func (e *Engine) now() time.Time {
 	return time.Now().UTC()
 }
 
+func (e *Engine) prices() *price.Table {
+	if e.Prices == nil {
+		e.Prices = price.Default()
+	}
+	return e.Prices
+}
+
 // Performs a complete scan
 // Returns error only for failures that make the whole run meaningless (no crendential, or no discoverable regionss). Everything else lands in a Report.Errrors and scan continues
 func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
-	now := e.now()
-
-	account, err := e.AWS.AccountID(ctx)
-	if err != nil {
-		return zombie.Report{}, err
+	if len(e.Accounts) == 0 {
+		return zombie.Report{}, errors.New("scan: no accounts configured")
 	}
 
-	regions, err := e.resolveRegions(ctx, o)
-	if err != nil {
-		return zombie.Report{}, err
+	now := e.now()
+
+	type target struct {
+		aws     awsapi.Factory
+		account string
+		region  string
+	}
+
+	var (
+		targets  []target
+		accounts []string
+		regions  []string
+		seenReg  = map[string]bool{}
+		preErrs  []zombie.ScanError
+	)
+
+	for _, f := range e.Accounts {
+		account, err := f.AccountID(ctx)
+		if err != nil {
+			preErrs = append(
+				preErrs,
+				newScanError("", "", "sts", "GetCallerIdentity", err),
+			)
+			continue
+		}
+		rs, err := e.resolveRegions(ctx, f, o)
+		if err != nil {
+			preErrs = append(preErrs, newScanError(account, "", "ec2", "DescribeRegions", err))
+			continue
+		}
+		accounts = append(accounts, account)
+		for _, r := range rs {
+			targets = append(targets, target{aws: f, account: account, region: r})
+			if !seenReg[r] {
+				seenReg[r] = true
+				regions = append(regions, r)
+			}
+		}
+	}
+
+	if len(accounts) == 0 {
+		return zombie.Report{}, fmt.Errorf("no account could be scanned: %w", preErrs[0])
 	}
 
 	report := zombie.Report{
-		AccountID: account,
+		AccountID: accounts[0],
+		Accounts:  accounts,
 		ScannedAt: now,
 		Regions:   regions,
+		Prices:    e.prices().Label,
 		Findings:  []zombie.Finding{},
 		Errors:    []zombie.ScanError{},
 	}
@@ -85,17 +134,18 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 	var (
 		mu       sync.Mutex
 		findings []zombie.Finding
-		scanErrs []zombie.ScanError
+		scanErrs = preErrs
 		filtered = map[string]int{}
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
+	// one budget for accounts x regions, not per account
 	g.SetLimit(e.concurrency())
 
-	for _, region := range regions {
+	for _, t := range targets {
 		g.Go(func() error {
 			start := time.Now()
-			found, dropped, errs := e.scanOneRegion(gctx, region, account, now, o)
+			found, dropped, errs := e.scanOneRegion(gctx, t.aws, t.region, t.account, now, o)
 
 			mu.Lock()
 			findings = append(findings, found...)
@@ -105,9 +155,9 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 			}
 			mu.Unlock()
 
-			e.log().Debug("region scanned", "region", region, "findings", len(found), "errors", len(errs), "took", time.Since(start))
+			e.log().Debug("region scanned", "account", t.account, "region", t.region, "findings", len(found), "errors", len(errs), "took", time.Since(start))
 
-			// nil -> returning error would cancle gctx
+			// nil -> returning error would cancel gctx
 			return nil
 		})
 	}
@@ -119,14 +169,14 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 		report.Filtered = filtered
 	}
 	report.Summary = summarize(report.Findings)
-	report.Normalize() // the never-null guarantee, once, at the end
+	report.Normalize() // the never-null guarantee
 	return report, nil
 }
 
-func (e *Engine) resolveRegions(ctx context.Context, o Options) ([]string, error) {
+func (e *Engine) resolveRegions(ctx context.Context, aws awsapi.Factory, o Options) ([]string, error) {
 	switch {
 	case o.AllRegions:
-		rs, err := e.AWS.Regions(ctx)
+		rs, err := aws.Regions(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +184,7 @@ func (e *Engine) resolveRegions(ctx context.Context, o Options) ([]string, error
 	case len(o.Regions) > 0:
 		return o.Regions, nil
 	default:
-		return []string{e.AWS.BaseRegion()}, nil
+		return []string{aws.BaseRegion()}, nil
 	}
 }
 
@@ -146,12 +196,12 @@ type step struct {
 }
 
 // scans one region, returns errors as data
-func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now time.Time, o Options) ([]zombie.Finding, map[string]int, []zombie.ScanError) {
+func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, account string, now time.Time, o Options) ([]zombie.Finding, map[string]int, []zombie.ScanError) {
 	errs := []zombie.ScanError{}
 
-	clients, err := e.AWS.For(ctx, region)
+	clients, err := aws.For(ctx, region)
 	if err != nil {
-		return nil, nil, append(errs, newScanError(region, "aws", "Clients", err))
+		return nil, nil, append(errs, newScanError(account, region, "aws", "Clients", err))
 	}
 
 	inv := zombie.Inventory{
@@ -164,6 +214,11 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 		{"ec2", "DescribeVolumes", func(ctx context.Context, inv *zombie.Inventory) error {
 			v, err := collect.Volumes(ctx, clients.EC2)
 			inv.Volumes = v // nil on error - detectors range over it zero times
+			return err
+		}},
+		{"rds", "DescribeDBInstances", func(ctx context.Context, inv *zombie.Inventory) error {
+			dbs, err := collect.DBInstances(ctx, clients.RDS)
+			inv.DBInstances = dbs
 			return err
 		}},
 		{"ec2", "DescribeAddresses", func(ctx context.Context, inv *zombie.Inventory) error {
@@ -191,14 +246,38 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 			inv.NATGateways = n
 			return err
 		}},
+		{"rds", "DescribeDBSnapshots", func(ctx context.Context, inv *zombie.Inventory) error {
+			s, err := collect.DBSnapshots(ctx, clients.RDS)
+			inv.DBSnapshots = s
+			return err
+		}},
+		{"kms", "ListKeys", func(ctx context.Context, inv *zombie.Inventory) error {
+			k, err := collect.KMSKeys(ctx, clients.KMS)
+			inv.KMSKeys = k
+			return err
+		}},
+		{"ecr", "DescribeRepositories", func(ctx context.Context, inv *zombie.Inventory) error {
+			i, err := collect.ECRImages(ctx, clients.ECR)
+			inv.ECRImages = i
+			return err
+		}},
+		{"elasticfilesystem", "DescribeFileSystems", func(ctx context.Context, inv *zombie.Inventory) error {
+			fs, err := collect.FileSystems(ctx, clients.EFS)
+			inv.FileSystems = fs
+			return err
+		}},
 		{"elasticloadbalancing", "DescribeLoadBalancers", func(ctx context.Context, inv *zombie.Inventory) error {
 			lbs, err := collect.LoadBalancers(ctx, clients.ELB)
 			inv.LoadBalancers = lbs
 			return err
 		}},
+		{"elasticloadbalancing", "DescribeTags", func(ctx context.Context, inv *zombie.Inventory) error {
+			return collect.LoadBalancerTags(ctx, clients.ELB, inv.LoadBalancers)
+		}},
 		// must run after every collector that it builds queries from
 		{"cloudwatch", "GetMetricData", func(ctx context.Context, inv *zombie.Inventory) error {
-			queries := make([]collect.Query, 0, len(inv.NATGateways)+len(inv.LoadBalancers))
+			queries := make([]collect.Query, 0,
+				len(inv.NATGateways)+len(inv.LoadBalancers)+len(inv.DBInstances))
 
 			for _, n := range inv.NATGateways {
 				queries = append(queries, collect.Query{
@@ -220,6 +299,19 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 				})
 			}
 
+			// stopped instances publish nothing, so querying them wastes a slot in the batch
+			for _, db := range inv.DBInstances {
+				if db.Status != "available" {
+					continue
+				}
+				queries = append(queries, collect.Query{
+					Namespace:  "AWS/RDS",
+					Metric:     "DatabaseConnections",
+					Dimension:  "DBInstanceIdentifier",
+					ResourceID: db.ID,
+				})
+			}
+
 			window := time.Duration(e.Cfg.IdleWindowDays) * 24 * time.Hour
 			ms, err := collect.MetricSums(ctx, clients.CW, inv.Now, window, queries)
 			inv.Metrics = ms
@@ -232,21 +324,29 @@ func (e *Engine) scanOneRegion(ctx context.Context, region, account string, now 
 	for _, s := range steps {
 		t0 := time.Now()
 		if err := s.run(ctx, &inv); err != nil {
+			// the listing worked, so what was read stays usable; only report the gap
+			var partial *collect.Partial
+			if errors.As(err, &partial) {
+				e.log().Debug("step partial", "op", s.service+":"+s.operation, "region", region, "err", err)
+				errs = append(errs, newScanError(account, region, partial.Service, partial.Operation, err))
+				continue
+			}
 			e.log().Debug("step failed", "op", s.service+":"+s.operation, "region", region, "err", err)
 			inv.Failed[s.service+":"+s.operation] = true
-			errs = append(errs, newScanError(region, s.service, s.operation, err))
+			errs = append(errs, newScanError(account, region, s.service, s.operation, err))
 			continue // degrade, never abort
 		}
 		e.log().Debug("step ok", "op", s.service+":"+s.operation, "took", time.Since(t0))
 	}
 
-	findings := price.Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)
+	findings := e.prices().Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)
 	findings, dropped := filter.Apply(findings, e.Filters)
 	return findings, dropped, errs
 }
 
-func newScanError(region, service, operation string, err error) zombie.ScanError {
+func newScanError(account, region, service, operation string, err error) zombie.ScanError {
 	return zombie.ScanError{
+		Account:   account,
 		Region:    region,
 		Service:   service,
 		Operation: operation,
@@ -284,6 +384,10 @@ func summarize(fs []zombie.Finding) zombie.Summary {
 		s.TotalMonthlyUSD += f.MonthlyCost
 		s.ByConfidence[f.Confidence.String()]++
 		s.ByDetector[f.Detector] += f.MonthlyCost
+	}
+	s.TotalMonthlyUSD = price.Cents(s.TotalMonthlyUSD)
+	for k, v := range s.ByDetector {
+		s.ByDetector[k] = price.Cents(v)
 	}
 	return s
 }

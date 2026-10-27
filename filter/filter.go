@@ -56,3 +56,19 @@ func (MinConfidence) Name() string {
 func (m MinConfidence) Keep(f zombie.Finding) bool {
 	return f.Confidence.Rank() >= m.Level.Rank()
 }
+
+const DefaultKeepTag = "zombie-scanner:keep"
+
+// free human text,not parsed. Just presence of the tag is checked for filteration
+type KeepTag struct {
+	Key string
+}
+
+func (k KeepTag) Name() string {
+	return k.Key + " tag"
+}
+
+func (k KeepTag) Keep(f zombie.Finding) bool {
+	_, tagged := f.Tags[k.Key]
+	return !tagged
+}

@@ -55,6 +55,25 @@ jobs:
         with:
           version: v2.13.2
 
+  action-lint:
+    name: action-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: action.yml is valid YAML
+        run: python3 -c "import yaml; yaml.safe_load(open('action.yml'))"
+      - name: its shell steps parse
+        run: |
+          python3 - <<'PY' > /tmp/steps.sh
+          import yaml
+          for s in yaml.safe_load(open("action.yml"))["runs"]["steps"]:
+              if "run" in s:
+                  print("(", s["run"], ")")
+          PY
+          bash -n /tmp/steps.sh
+      - name: the example workflow is valid YAML
+        run: python3 -c "import yaml; yaml.safe_load(open('docs/examples/scheduled-scan.yml'))"
+
   iam-policy:
     name: iam-policy
     runs-on: ubuntu-latest
@@ -87,7 +106,7 @@ jobs:
     name: release-config
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v7
         with:
@@ -114,7 +133,7 @@ jobs:
     name: compat (minimum go)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # the version go.mod declares must actually build; every other job uses
       # the newest toolchain
       - uses: actions/setup-go@v7

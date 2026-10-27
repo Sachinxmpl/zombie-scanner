@@ -10,8 +10,9 @@ type Config struct {
 	StoppedDays     int
 	IdleWindowDays  int
 
-	NATIdleBytes    float64
-	ELBIdleRequests float64
+	NATIdleBytes       float64
+	ELBIdleRequests    float64
+	RDSIdleConnections float64
 }
 
 type Detector interface {
@@ -23,12 +24,13 @@ type Detector interface {
 
 func Defaults() Config {
 	return Config{
-		MinAgeDays:      0,
-		SnapshotAgeDays: 90,
-		StoppedDays:     30,
-		IdleWindowDays:  14,
-		NATIdleBytes:    1 << 20, // 1MiB
-		ELBIdleRequests: 1,
+		MinAgeDays:         0,
+		SnapshotAgeDays:    90,
+		StoppedDays:        30,
+		IdleWindowDays:     14,
+		NATIdleBytes:       1 << 20, // 1MiB
+		ELBIdleRequests:    1,
+		RDSIdleConnections: 1, // connection-minutes: fewer than 1 means never a connection
 	}
 }
 

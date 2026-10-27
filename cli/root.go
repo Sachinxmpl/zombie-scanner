@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Sachinxmpl/zombie-scanner/config"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
+	"github.com/Sachinxmpl/zombie-scanner/filter"
 )
 
 // holds flag values for one command invocation
@@ -34,7 +37,21 @@ type options struct {
 
 	Concurrency int
 
+	KeepTag   string
+	NoKeepTag bool
+
+	ConfigPath string
+	NoConfig   bool
+
+	config *config.File
+
 	version, commit string
+
+	TFState  []string
+	Accounts []string
+	RoleName string
+
+	Rates string
 }
 
 // builds the command tree
@@ -65,7 +82,7 @@ It never creates, modifies, or deletes anything.`,
 	pf.BoolVar(&o.AllRegions, "all-regions", false, "scan every region the account has opted into")
 	pf.StringVar(&o.Profile, "profile", "", "AWS profile to use")
 
-	pf.StringVar(&o.Output, "output", "table", "output format: table|json")
+	pf.StringVar(&o.Output, "output", "table", "output format: table|json|markdown")
 	pf.BoolVar(&o.JSON, "json", false, "shorthand for --output json")
 	pf.BoolVar(&o.NoColor, "no-color", false, "disable colour output")
 	pf.BoolVarP(&o.Verbose, "verbose", "v", false, "show how each cost was calculated")
@@ -85,15 +102,33 @@ It never creates, modifies, or deletes anything.`,
 
 	pf.IntVar(&o.Concurrency, "concurrency", 8, "regions to scan in parallel")
 
-	// --region and --all-regions are mutually exclusive
-	root.MarkFlagsMutuallyExclusive("region", "all-regions")
+	pf.StringVar(&o.KeepTag, "keep-tag", filter.DefaultKeepTag, "hide resources carrying this tag key")
+	pf.BoolVar(&o.NoKeepTag, "no-keep-tag", false, "ignore the keep tag and show all findings")
+
+	pf.StringVar(&o.ConfigPath, "config", "", "config file (default: ./"+config.FileName+", then $HOME)")
+	pf.BoolVar(&o.NoConfig, "no-config", false, "ignore any config file")
+
+	pf.StringSliceVar(&o.TFState, "tf-state", nil,
+		"Terraform state file or directory; hides everything Terraform already manages")
+
+	pf.StringSliceVar(&o.Accounts, "accounts", nil, "also scan these account IDs by assuming --role-name in each")
+	pf.StringVar(&o.RoleName, "role-name", "ZombieScannerReadOnly", "role to assume in each --accounts entry")
+
+	pf.StringVar(&o.Rates, "rates", "", "JSON file of prices that replace the built-in ones")
 
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		return applyEnv(cmd)
+		if cmd.Flags().Changed("region") && cmd.Flags().Changed("all-regions") {
+			return errors.New("--region and --all-regions cannot be used together")
+		}
+		if err := applyEnv(cmd); err != nil {
+			return err
+		}
+		return applyConfig(cmd, &o)
 	}
 
 	root.AddCommand(
 		newScanCommand(&o),
+		newRenderCommand(&o),
 		newDetectorsCommand(),
 		newVersionCommand(version, commit),
 		newIAMPolicyCommand(&o),
@@ -135,7 +170,6 @@ func newVersionCommand(version, commit string) *cobra.Command {
 }
 
 // flag > environment > default
-// Todo -> config file
 func applyEnv(cmd *cobra.Command) error {
 	for flagName, envName := range map[string]string{
 		"region":            "ZOMBIE_SCANNER_REGION",
@@ -146,6 +180,8 @@ func applyEnv(cmd *cobra.Command) error {
 		"snapshot-age-days": "ZOMBIE_SCANNER_SNAPSHOT_AGE_DAYS",
 		"stopped-days":      "ZOMBIE_SCANNER_STOPPED_DAYS",
 		"idle-window-days":  "ZOMBIE_SCANNER_IDLE_WINDOW_DAYS",
+		"keep-tag":          "ZOMBIE_SCANNER_KEEP_TAG",
+		"rates":             "ZOMBIE_SCANNER_RATES",
 	} {
 		if cmd.Flags().Changed(flagName) {
 			continue
@@ -158,5 +194,53 @@ func applyEnv(cmd *cobra.Command) error {
 			return fmt.Errorf("%s: %w", envName, err)
 		}
 	}
+	return nil
+}
+
+// flag > environment > config file > default.
+// Each tier skips a flag that an earlier tier already set
+func applyConfig(cmd *cobra.Command, o *options) error {
+	if o.NoConfig {
+		return nil
+	}
+
+	var (
+		f   *config.File
+		err error
+	)
+	if o.ConfigPath != "" {
+		f, err = config.Load(o.ConfigPath)
+	} else {
+		f, err = config.Discover()
+	}
+	if err != nil {
+		return err
+	}
+	if f == nil {
+		return nil
+	}
+
+	known := func(name string) bool {
+		for _, d := range detect.All() {
+			if d.Name() == name {
+				return true
+			}
+		}
+		return false
+	}
+	if err := filter.ValidateIgnoreRules(f.Ignore, known); err != nil {
+		return fmt.Errorf("config %s: %w", f.Path, err)
+	}
+
+	for flagName, value := range f.FlagValues() {
+		if cmd.Flags().Changed(flagName) {
+			continue
+		}
+		if err := cmd.Flags().Set(flagName, value); err != nil {
+			return fmt.Errorf("config %s: %s: %w", f.Path, flagName, err)
+		}
+	}
+
+	o.config = f
 	return nil
 }

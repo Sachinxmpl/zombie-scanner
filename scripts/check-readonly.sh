@@ -68,6 +68,14 @@ mutations="$mutations|AttachVolume|DetachVolume|CreateSnapshot|DeleteSnapshot"
 mutations="$mutations|AllocateAddress|ReleaseAddress|AssociateAddress|DisassociateAddress"
 mutations="$mutations|CreateNatGateway|DeleteNatGateway|DeregisterImage|DeleteLoadBalancer"
 mutations="$mutations|PutMetricData|CreateBucket|DeleteObject"
+mutations="$mutations|CreateDBInstance|DeleteDBInstance|ModifyDBInstance|RebootDBInstance"
+mutations="$mutations|StartDBInstance|StopDBInstance|CreateDBSnapshot|DeleteDBSnapshot"
+mutations="$mutations|CreateFileSystem|DeleteFileSystem|UpdateFileSystem"
+mutations="$mutations|CreateMountTarget|DeleteMountTarget|PutLifecycleConfiguration"
+mutations="$mutations|ScheduleKeyDeletion|CancelKeyDeletion|DisableKey|EnableKey"
+mutations="$mutations|CreateKey|PutKeyPolicy|CreateAlias|DeleteAlias"
+mutations="$mutations|BatchDeleteImage|PutImage|PutImageTagMutability"
+mutations="$mutations|CreateRepository|DeleteRepository|SetRepositoryPolicy|PutLifecyclePolicy"
 
 if git ls-files '*.go' \
   | grep -v '_test\.go$' \
@@ -78,6 +86,27 @@ if git ls-files '*.go' \
   fail=1
 else
   echo "ok no known mutating operation appears in the source"
+fi
+
+#4. stscreds calls sts:AssumeRole internally, so check #2 cannot see it.
+#  It creates nothing in the scanned account, so it is allowed -> only in awsapi/.
+echo "-> credential assumption stays inside awsapi"
+if git ls-files '*.go' | grep -v '^awsapi/' | grep -v '^test/' \
+  | xargs grep -ln 'stscreds' 2>/dev/null; then
+  echo "x a package outside awsapi/ builds credentials"
+  fail=1
+else
+  echo "ok credential assumption stays inside awsapi"
+fi
+
+#5. The run-time guard refuses any non-read call before it is sent.
+#  tests prove the guard works; this proves every client gets it.
+echo "-> the run-time read-only guard is installed"
+if grep -q 'cfg.APIOptions = append(cfg.APIOptions, ReadOnly)' awsapi/config.go; then
+  echo "ok the run-time read-only guard is installed"
+else
+  echo "x awsapi.New no longer adds the ReadOnly guard to the AWS config"
+  fail=1
 fi
 
 exit $fail

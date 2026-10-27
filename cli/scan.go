@@ -1,17 +1,22 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
+	"regexp"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Sachinxmpl/zombie-scanner/awsapi"
+	"github.com/Sachinxmpl/zombie-scanner/config"
 	"github.com/Sachinxmpl/zombie-scanner/detect"
 	"github.com/Sachinxmpl/zombie-scanner/filter"
+	"github.com/Sachinxmpl/zombie-scanner/price"
 	"github.com/Sachinxmpl/zombie-scanner/render"
 	"github.com/Sachinxmpl/zombie-scanner/scan"
+	"github.com/Sachinxmpl/zombie-scanner/tfstate"
 	"github.com/Sachinxmpl/zombie-scanner/zombie"
 )
 
@@ -36,17 +41,45 @@ func runScan(cmd *cobra.Command, o options) error {
 	if o.JSON {
 		format = "json"
 	}
-	if format != "table" && format != "json" {
-		return fmt.Errorf("unknown output format %q (want table or json)", format)
+	switch format {
+	case "table", "json", "markdown":
+	default:
+		return fmt.Errorf("unknown output format %q (want table, json or markdown)", format)
 	}
 
 	if err := validateDetectors(o.Only, o.Skip); err != nil {
 		return err
 	}
 
+	// CloudWatch rejects a zero-length window
+	if o.IdleWindowDays < 1 {
+		return fmt.Errorf("--idle-window-days must be at least 1, got %d", o.IdleWindowDays)
+	}
+	if o.StoppedDays < 0 {
+		return fmt.Errorf("--stopped-days cannot be negative, got %d", o.StoppedDays)
+	}
+	if o.SnapshotAgeDays < 0 {
+		return fmt.Errorf("--snapshot-age-days cannot be negative, got %d", o.SnapshotAgeDays)
+	}
+
 	filters := []filter.Filter{}
+
+	var unmanaged *filter.Unmanaged
+	if len(o.TFState) > 0 {
+		managed, err := tfstate.Load(o.TFState)
+		if err != nil {
+			return err
+		}
+		unmanaged = &filter.Unmanaged{Managed: managed}
+		filters = append(filters, unmanaged)
+		logTFState(cmd.ErrOrStderr(), managed)
+	}
+
 	if o.MinCost > 0 {
 		filters = append(filters, filter.MinCost{USD: o.MinCost})
+	}
+	if !o.NoKeepTag && o.KeepTag != "" {
+		filters = append(filters, filter.KeepTag{Key: o.KeepTag})
 	}
 	if o.Confidence != "" {
 		level, err := zombie.ParseConfidence(o.Confidence)
@@ -55,10 +88,22 @@ func runScan(cmd *cobra.Command, o options) error {
 		}
 		filters = append(filters, filter.MinConfidence{Level: level})
 	}
+	var ignore *filter.IgnoreRules
+	if o.config != nil && len(o.config.Ignore) > 0 {
+		ignore = filter.NewIgnoreRules(o.config.Ignore)
+		filters = append(filters, ignore)
+	}
 
 	logger, err := newLogger(cmd.ErrOrStderr(), o.LogLevel, o.Verbose)
 	if err != nil {
 		return err
+	}
+
+	prices := price.Default()
+	if o.Rates != "" {
+		if prices, err = price.Load(o.Rates); err != nil {
+			return err
+		}
 	}
 
 	cfg := detect.Defaults()
@@ -69,15 +114,13 @@ func runScan(cmd *cobra.Command, o options) error {
 	// nothing above here touches the network, i.e a bad flag never costs a
 	// round trip and never reports itself as a credentials problem
 
-	aws, err := awsapi.New(ctx, awsapi.Options{
-		Profile: o.Profile,
-		Region:  o.Region,
-	})
+	accounts, err := buildFactories(ctx, o)
 	if err != nil {
 		return err
 	}
 
-	eng := &scan.Engine{AWS: aws, Cfg: cfg, Filters: filters, Log: logger, Concurrency: o.Concurrency}
+	eng := &scan.Engine{Accounts: accounts, Cfg: cfg, Filters: filters, Log: logger, Concurrency: o.Concurrency,
+		Prices: prices}
 
 	opts := scan.Options{Only: o.Only, Skip: o.Skip, AllRegions: o.AllRegions}
 	if o.Region != "" {
@@ -94,9 +137,12 @@ func runScan(cmd *cobra.Command, o options) error {
 
 	// report to stdout, diagnostics to stderr, so --json | jq stays clean
 	w := cmd.OutOrStdout()
-	if format == "json" {
+	switch format {
+	case "json":
 		err = render.JSON(w, report)
-	} else {
+	case "markdown":
+		err = render.Markdown(w, report, render.MarkdownOptions{})
+	default:
 		err = render.Table(w, report, render.TableOptions{
 			NoColor: o.NoColor,
 			Verbose: o.Verbose,
@@ -107,6 +153,7 @@ func runScan(cmd *cobra.Command, o options) error {
 	}
 
 	render.Errors(cmd.ErrOrStderr(), report, o.Verbose)
+	warnUnmatched(cmd.ErrOrStderr(), ignore, o.config)
 
 	if o.Strict && len(report.Errors) > 0 {
 		return fmt.Errorf("%d check(s) could not run and --strict is set", len(report.Errors))
@@ -118,7 +165,6 @@ func runScan(cmd *cobra.Command, o options) error {
 	return nil
 }
 
-// a typo in --only must not silently scan nothing
 func validateDetectors(lists ...[]string) error {
 	known := make(map[string]bool)
 	for _, d := range detect.All() {
@@ -142,4 +188,54 @@ func newLogger(w io.Writer, level string, verbose bool) (*slog.Logger, error) {
 		return nil, fmt.Errorf("unknown log level %q (want debug, info, warn or error)", level)
 	}
 	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: l})), nil
+}
+
+// Warned a rule that matched nothing is a typo or a resource somebody already deleted
+func warnUnmatched(w io.Writer, ignore *filter.IgnoreRules, cfg *config.File) {
+	if ignore == nil {
+		return
+	}
+	stale := ignore.Unmatched()
+	if len(stale) == 0 {
+		return
+	}
+
+	fmt.Fprintf(w, "\n%d ignore rule(s) in %s matched nothing:\n", len(stale), cfg.Path)
+	for _, r := range stale {
+		fmt.Fprintf(w, "  %s  (%s)\n", r, r.Reason)
+	}
+}
+
+func buildFactories(ctx context.Context, o options) ([]awsapi.Factory, error) {
+	base := awsapi.Options{Profile: o.Profile, Region: o.Region}
+
+	self, err := awsapi.New(ctx, base)
+	if err != nil {
+		return nil, err
+	}
+	out := []awsapi.Factory{self}
+
+	for _, id := range o.Accounts {
+		if !accountID.MatchString(id) {
+			return nil, fmt.Errorf("--accounts: %q is not a 12-digit AWS account ID", id)
+		}
+		opts := base
+		opts.AssumeRoleARN = fmt.Sprintf("arn:aws:iam::%s:role/%s", id, o.RoleName)
+
+		f, err := awsapi.New(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
+var accountID = regexp.MustCompile(`^[0-9]{12}$`)
+
+func logTFState(w io.Writer, m *tfstate.Managed) {
+	if m.Len() == 0 {
+		fmt.Fprintf(w, "warning: %d state file(s) contain no managed resources; --tf-state filtered nothing\n",
+			len(m.Files()))
+	}
 }

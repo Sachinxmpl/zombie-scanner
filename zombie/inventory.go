@@ -17,11 +17,67 @@ type Inventory struct {
 	Instances     []Instance
 	NATGateways   []NATGateway
 	LoadBalancers []LoadBalancer
+	DBInstances   []DBInstance
+	DBSnapshots   []DBSnapshot
+	FileSystems   []FileSystem
+	KMSKeys       []KMSKey
+	ECRImages     []ECRImage
 
 	// operations that didn't complete, "service:Operation"
 	Failed map[string]bool
 
 	Metrics MetricSet
+}
+
+type KMSKey struct {
+	ID          string
+	ARN         string
+	Manager     string // "AWS", "CUSTOMER"
+	State       string // "Enabled", "Disabled"
+	Description string
+	CreatedAt   time.Time
+}
+
+type ECRImage struct {
+	Digest     string
+	Repository string
+	RepoARN    string
+	Tags       []string
+	SizeBytes  int64
+	PushedAt   time.Time
+	LastPulled *time.Time
+}
+
+type DBInstance struct {
+	ID          string
+	ARN         string
+	Status      string // "available", "stopped", "starting"
+	Engine      string // "postgres", "mysql", "aurora-postgresql"
+	Class       string // "db.t3.medium", "db.t3.micro"
+	StorageType string // "gp2", "gp3", "io1", "io2", "standard"
+	StorageGiB  int32
+	MultiAZ     bool
+
+	// empty unless this instance is a read replica
+	ReplicaOf string
+
+	AutoRestartAt *time.Time
+
+	CreatedAt time.Time
+	Tags      map[string]string
+}
+
+type DBSnapshot struct {
+	ID          string
+	ARN         string
+	DBInstance  string
+	Type        string // "manual", "automated"
+	Engine      string // "postgres", "mysql", "aurora-postgresql"
+	Status      string
+	StorageGiB  int32 // size of the source DB instance at the time of snapshot creation
+	ActualBytes int64 // size of the snapshot itself, 0 when AWS does not report it
+	CreatedAt   time.Time
+	Tags        map[string]string
 }
 
 type Volume struct {
@@ -38,6 +94,7 @@ type Address struct {
 	AllocationID  string
 	PublicIP      string
 	AssociationID string // empty -> unassociated
+	InstanceID    string // empty if not on an instance
 	Tags          map[string]string
 }
 
@@ -82,6 +139,20 @@ type LoadBalancer struct {
 	MetricSuffix string
 	CreatedAt    time.Time
 	Tags         map[string]string
+}
+
+type FileSystem struct {
+	ID           string
+	ARN          string
+	Name         string
+	State        string
+	MountTargets int32
+	// bytes -> most file system are under 1GiB
+	StandardBytes int64
+	IABytes       int64
+	ArchiveBytes  int64
+	CreatedAt     time.Time
+	Tags          map[string]string
 }
 
 func (inv Inventory) AgeDays(t time.Time) int {

@@ -12,6 +12,7 @@ const (
 )
 
 type ScanError struct {
+	Account   string    `json:"account,omitempty"`
 	Region    string    `json:"region"`
 	Service   string    `json:"service"`   // ec2
 	Operation string    `json:"operation"` // DescribeVolumes

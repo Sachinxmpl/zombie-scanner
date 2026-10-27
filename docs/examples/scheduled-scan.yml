@@ -1,0 +1,38 @@
+# Weekly zombie scan, posted to the job summary.
+#
+# copy into .github/workflows/. Needs an IAM role this repository can assume -
+# see docs/iam-policy.json for what that role needs.
+name: Zombie scan
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Mondays, 09:00 UTC
+  workflow_dispatch: # run it by hand the first time
+
+permissions:
+  contents: read
+  id-token: write # for the OIDC login below
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      # no long-lived access keys: the role trusts this repo, credentials last minutes
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_SCAN_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: Sachinxmpl/zombie-scanner@v0.2.0
+        id: zombies
+        with:
+          args: --all-regions --min-cost 1
+          # watch a few weeks of reports first, then pick a number
+          fail-if-above: ""
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zombie-report
+          path: ${{ steps.zombies.outputs.report }}

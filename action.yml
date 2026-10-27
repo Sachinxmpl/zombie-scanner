@@ -1,0 +1,143 @@
+name: zombie-scanner
+description: Find AWS resources that are dead but still billing. Read-only.
+author: Sachinxmpl
+
+branding:
+  icon: search
+  color: red
+
+inputs:
+  version:
+    description: Release to run, e.g. v0.2.0. Defaults to the version of this action.
+    required: false
+    default: ""
+  args:
+    description: Arguments passed to zombie-scanner scan, e.g. "--all-regions --min-cost 5".
+    required: false
+    default: ""
+  fail-if-above:
+    description: Fail the job when estimated monthly zombie spend exceeds this. Empty means it never fails.
+    required: false
+    default: ""
+  summary:
+    description: Write the report to the job summary.
+    required: false
+    default: "true"
+
+outputs:
+  monthly-usd:
+    description: Estimated monthly zombie spend.
+    value: ${{ steps.scan.outputs.monthly-usd }}
+  count:
+    description: Number of findings.
+    value: ${{ steps.scan.outputs.count }}
+  report:
+    description: Path to the JSON report.
+    value: ${{ steps.scan.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install zombie-scanner
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        REPO=Sachinxmpl/zombie-scanner
+
+        if [ -z "$VERSION" ]; then
+          if [[ "$ACTION_REF" =~ ^v[0-9] ]]; then
+            VERSION=$ACTION_REF
+          else
+            VERSION=$(gh release view --repo "$REPO" --json tagName --jq .tagName)
+          fi
+        fi
+        NUM=${VERSION#v}
+
+        if [ "$RUNNER_OS" != "Linux" ]; then
+          echo "::error::zombie-scanner action supports Linux runners only, got $RUNNER_OS"
+          exit 1
+        fi
+        case "$RUNNER_ARCH" in
+          X64) ARCH=amd64 ;;
+          ARM64) ARCH=arm64 ;;
+          *) echo "::error::unsupported runner architecture $RUNNER_ARCH"; exit 1 ;;
+        esac
+        ARCHIVE="zombie-scanner_${NUM}_linux_${ARCH}.tar.gz"
+
+        TMP=$(mktemp -d)
+        gh release download "$VERSION" --repo "$REPO" --dir "$TMP" \
+          --pattern "$ARCHIVE" --pattern checksums.txt
+
+        ( cd "$TMP" && sha256sum -c checksums.txt --ignore-missing )
+        if ! gh attestation verify "$TMP/$ARCHIVE" --repo "$REPO"; then
+          echo "::error::build provenance could not be verified for $VERSION"
+          exit 1
+        fi
+
+        BIN="$RUNNER_TEMP/zombie-scanner-bin"
+        mkdir -p "$BIN"
+        tar -xzf "$TMP/$ARCHIVE" -C "$BIN" zombie-scanner
+        echo "$BIN" >> "$GITHUB_PATH"
+        "$BIN/zombie-scanner" version
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        ARGS: ${{ inputs.args }}
+        THRESHOLD: ${{ inputs.fail-if-above }}
+        SUMMARY: ${{ inputs.summary }}
+      run: |
+        set -euo pipefail
+        REPORT="$RUNNER_TEMP/zombie-report.json"
+
+        if [ -n "$THRESHOLD" ] && ! [[ "$THRESHOLD" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+          echo "::error::fail-if-above must be a number, got \"$THRESHOLD\""
+          exit 1
+        fi
+
+        # scan once; the summary and the outputs are both read from this one report
+        set +e
+        zombie-scanner scan $ARGS --output json > "$REPORT"
+        STATUS=$?
+        set -e
+
+        # --strict or --fail-if-above in ARGS exit non-zero after writing the report
+        if ! jq -e .summary "$REPORT" > /dev/null 2>&1; then
+          echo "::error::zombie-scanner exited $STATUS without a report"
+          exit $(( STATUS == 0 ? 1 : STATUS ))
+        fi
+
+        USD=$(jq -r '.summary.total_monthly_usd' "$REPORT")
+        COUNT=$(jq -r '.summary.zombie_count' "$REPORT")
+        {
+          echo "monthly-usd=$USD"
+          echo "count=$COUNT"
+          echo "report=$REPORT"
+        } >> "$GITHUB_OUTPUT"
+
+        if [ "$SUMMARY" = "true" ]; then
+          zombie-scanner render "$REPORT" --output markdown >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        SKIPPED=$(jq -r '.errors | length' "$REPORT")
+        if [ "$SKIPPED" != "0" ]; then
+          echo "::warning::$SKIPPED check(s) could not run - see the job summary"
+        fi
+
+        if [ "$STATUS" -ne 0 ]; then
+          exit "$STATUS"
+        fi
+
+        if [ -n "$THRESHOLD" ]; then
+          over=$(jq -r --argjson t "$THRESHOLD" \
+            'if .summary.total_monthly_usd > $t then "yes" else "no" end' "$REPORT")
+          if [ "$over" = "yes" ]; then
+            echo "::error::estimated zombie spend \$$USD/month exceeds \$$THRESHOLD"
+            exit 1
+          fi
+        fi

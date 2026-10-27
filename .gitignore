@@ -13,3 +13,8 @@ zombie-scanner
 
 coverage.out
 coverage.html
+
+*.tfstate
+*.tfstate.*
+
+custom-rates.json
