@@ -1,7 +1,7 @@
 # Weekly zombie scan, posted to the job summary.
 #
-# copy into .github/workflows/. Needs an IAM role this repository can assume -
-# see docs/iam-policy.json for what that role needs.
+# Copy into .github/workflows/. Needs an AWS role this repository can log in to
+# README's "Setting up the AWS role" section shows how.
 name: Zombie scan
 
 on:
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # no long-lived access keys: the role trusts this repo, credentials last minutes
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_SCAN_ROLE_ARN }}
           aws-region: us-east-1
@@ -31,8 +31,8 @@ jobs:
           fail-if-above: ""
 
       - name: Keep the report
-        if: always()
-        uses: actions/upload-artifact@v4
+        if: always() && steps.zombies.outputs.report != ''
+        uses: actions/upload-artifact@v7
         with:
           name: zombie-report
           path: ${{ steps.zombies.outputs.report }}
