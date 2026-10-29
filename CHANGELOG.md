@@ -8,6 +8,13 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ## [Unreleased]
 
+### Fixed
+
+- The example workflow no longer shows a second, confusing error
+  (`Input required and not supplied: path`) when the AWS login fails, and uses
+  current versions of its actions. The README now shows how to set up the AWS
+  role it logs in with.
+
 ## [0.3.0] - 2026-10-27
 
 **Your own prices, a run-time read-only guard, and three fixes.**

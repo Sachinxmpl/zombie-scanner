@@ -314,6 +314,65 @@ shows as a warning; add `--strict` to `args` to fail the job instead.
 A full weekly workflow that logs in to AWS without stored keys:
 [docs/examples/scheduled-scan.yml](docs/examples/scheduled-scan.yml).
 
+#### Setting up the AWS role
+
+The example logs in with a short-lived token from GitHub instead of stored keys.
+You set this up once per AWS account. Run these commands yourself; they change
+your account.
+
+1. Let AWS trust GitHub's login tokens. This gives nobody access yet:
+
+   ```bash
+   aws iam create-open-id-connect-provider \
+     --url https://token.actions.githubusercontent.com \
+     --client-id-list sts.amazonaws.com
+   ```
+
+2. Find exactly how GitHub names your repository in its tokens:
+
+   ```bash
+   gh api repos/OWNER/REPO/actions/oidc/customization/sub
+   ```
+
+   If it shows a `sub_claim_prefix`, use that. It may include numeric IDs, like
+   `repo:octo@1234/my-repo@5678`. Otherwise use `repo:OWNER/REPO`. Add
+   `:ref:refs/heads/main` (your default branch) to the end.
+
+3. Save this as `trust.json`, with your account ID and the value from step 2:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Principal": { "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com" },
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+         "StringEquals": {
+           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+           "token.actions.githubusercontent.com:sub": "VALUE_FROM_STEP_2"
+         }
+       }
+     }]
+   }
+   ```
+
+4. Create the role with read-only permissions, and give its ARN to the
+   repository:
+
+   ```bash
+   zombie-scanner iam-policy > scan-policy.json
+   aws iam create-role --role-name zombie-scanner-ci \
+     --assume-role-policy-document file://trust.json
+   aws iam put-role-policy --role-name zombie-scanner-ci \
+     --policy-name zombie-scanner-read --policy-document file://scan-policy.json
+   gh secret set AWS_SCAN_ROLE_ARN --repo OWNER/REPO \
+     --body "arn:aws:iam::ACCOUNT_ID:role/zombie-scanner-ci"
+   ```
+
+If the job fails with `Not authorized to perform sts:AssumeRoleWithWebIdentity`,
+the `sub` in `trust.json` doesn't match. Check step 2 again.
+
 ### Scan once, show it many ways
 
 ```bash
