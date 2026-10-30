@@ -12,6 +12,8 @@ A command-line tool that looks through your AWS account, lists the
 resources nothing is using, and shows roughly what each one costs per month.
 **It only reads. It never creates, changes or deletes anything.**
 
+![zombie-scanner listing four unused resources in ap-south-1, about $16 a month](docs/demo.gif)
+
 ```console
 $ zombie-scanner --all-regions
 Account 123456789012 · us-east-1, eu-west-1 · scanned 2026-09-04 15:44 UTC
