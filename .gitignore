@@ -18,3 +18,4 @@ coverage.html
 *.tfstate.*
 
 custom-rates.json
+report.json

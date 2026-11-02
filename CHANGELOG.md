@@ -23,6 +23,7 @@ output's `schema_version` is what tells you whether scripts will keep working.
 - With `--only` or `--skip`, a failed AWS call that only unselected checks use
   is no longer reported, and no longer fails `--strict`. Failures that stop a
   whole account or region from being scanned are always reported.
+- Building from source now needs Go 1.26 or later (a dependency requires it).
 
 ### Fixed
 
@@ -34,7 +35,8 @@ output's `schema_version` is what tells you whether scripts will keep working.
   balancers tagged `zombie-scanner:keep`. It now skips them and the report
   says which permission is missing.
 - `zombie-scanner version` printed `0.3.0 (none)` after `go install`. It now
-  prints `0.3.0`
+  prints `0.3.0`.
+
 ## [0.3.0] - 2026-10-27
 
 **Your own prices, a run-time read-only guard, and three fixes.**

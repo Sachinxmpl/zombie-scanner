@@ -10,7 +10,7 @@ Set Padding 20
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 40ms
 
-# run outside the repo so .zombie-scanner.yaml doesnot applies
+# run outside the repo so .zombie-scanner.yaml doesn't apply
 Hide
 Type `cd "$(mktemp -d)" && clear`
 Enter

@@ -30,7 +30,7 @@ tidy: ## Sync go.mod/go.sum
 clean: ## Remove build artifacts
 	rm -f $(BINARY) coverage.out coverage.html
 
-verify: ## Very the read-only and architecture gates
+verify: ## Verify the read-only and architecture gates
 	@./scripts/check-readonly.sh
 	@./scripts/check-arch.sh
 
