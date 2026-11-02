@@ -8,6 +8,12 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ## [Unreleased]
 
+### Added
+
+- When an AWS call fails, the report now says which checks it affects, e.g.
+  `missing permission: elasticloadbalancing:DescribeTags (us-east-1) · affects elb-idle`.
+  The JSON gains an `affects` list on each error.
+
 ### Fixed
 
 - The example workflow no longer shows a second, confusing error

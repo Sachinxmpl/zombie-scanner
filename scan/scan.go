@@ -165,6 +165,9 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 
 	report.Findings = findings
 	report.Errors = scanErrs
+	for i, se := range report.Errors {
+		report.Errors[i].Affects = detect.Using(se.Service+":"+se.Operation, o.Only, o.Skip)
+	}
 	if len(filtered) > 0 {
 		report.Filtered = filtered
 	}

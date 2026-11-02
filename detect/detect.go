@@ -1,6 +1,11 @@
 package detect
 
-import "github.com/Sachinxmpl/zombie-scanner/zombie"
+import (
+	"slices"
+	"sort"
+
+	"github.com/Sachinxmpl/zombie-scanner/zombie"
+)
 
 type Config struct {
 	// how old resource must be before any detector will judge it
@@ -59,10 +64,7 @@ func Run(inv zombie.Inventory, cfg Config, only, skip []string) []zombie.Finding
 
 	for _, d := range registry {
 		name := d.Name()
-		if len(onlySet) > 0 && !onlySet[name] {
-			continue
-		}
-		if skipSet[name] {
+		if !selected(name, onlySet, skipSet) {
 			continue
 		}
 
@@ -75,6 +77,26 @@ func Run(inv zombie.Inventory, cfg Config, only, skip []string) []zombie.Finding
 	}
 
 	return findings
+}
+
+// Names of the selected detectors that call operation, e.g. "ec2:DescribeVolumes"
+func Using(operation string, only, skip []string) []string {
+	onlySet, skipSet := toSet(only), toSet(skip)
+	out := []string{}
+	for _, d := range registry {
+		if selected(d.Name(), onlySet, skipSet) && slices.Contains(d.Needs(), operation) {
+			out = append(out, d.Name())
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func selected(name string, only, skip map[string]bool) bool {
+	if len(only) > 0 && !only[name] {
+		return false
+	}
+	return !skip[name]
 }
 
 func toSet(xs []string) map[string]bool {
