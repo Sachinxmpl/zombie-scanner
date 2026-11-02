@@ -156,7 +156,7 @@ func runScan(cmd *cobra.Command, o options) error {
 	warnUnmatched(cmd.ErrOrStderr(), ignore, o.config)
 
 	if o.Strict && len(report.Errors) > 0 {
-		return fmt.Errorf("%d check(s) could not run and --strict is set", len(report.Errors))
+		return fmt.Errorf("%d AWS call(s) failed and --strict is set", report.FailedCalls())
 	}
 	if o.FailIfAbove > 0 && report.Summary.TotalMonthlyUSD > o.FailIfAbove {
 		return ErrSpendAboveThreshold

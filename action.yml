@@ -124,9 +124,9 @@ runs:
           zombie-scanner render "$REPORT" --output markdown >> "$GITHUB_STEP_SUMMARY"
         fi
 
-        SKIPPED=$(jq -r '.errors | length' "$REPORT")
-        if [ "$SKIPPED" != "0" ]; then
-          echo "::warning::$SKIPPED check(s) could not run - see the job summary"
+        FAILED=$(jq -r '[.errors[] | .service + ":" + .operation] | unique | length' "$REPORT")
+        if [ "$FAILED" != "0" ]; then
+          echo "::warning::$FAILED AWS call(s) failed; some results may be missing - see the job summary"
         fi
 
         if [ "$STATUS" -ne 0 ]; then

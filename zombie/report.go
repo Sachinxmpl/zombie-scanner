@@ -55,3 +55,12 @@ func (r *Report) Normalize() {
 		r.Summary.ByDetector = map[string]float64{}
 	}
 }
+
+// FailedCalls counts distinct AWS calls that failed, however many regions or accounts they failed in
+func (r Report) FailedCalls() int {
+	seen := map[string]bool{}
+	for _, e := range r.Errors {
+		seen[e.Service+":"+e.Operation] = true
+	}
+	return len(seen)
+}

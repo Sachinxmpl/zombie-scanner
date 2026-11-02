@@ -168,7 +168,8 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 		}
 	}
 
-	fmt.Fprintf(w, "\n! %d check%s skipped\n", len(r.Errors), plural(len(r.Errors)))
+	n := r.FailedCalls()
+	fmt.Fprintf(w, "\n! %d AWS call%s failed; some results may be missing\n", n, plural(n))
 
 	denied := false
 	for _, k := range order {

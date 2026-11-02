@@ -91,8 +91,9 @@ func markdownErrors(w io.Writer, r zombie.Report) {
 		return
 	}
 
-	fmt.Fprintf(w, "<details>\n<summary>%d check%s skipped</summary>\n\n",
-		len(r.Errors), plural(len(r.Errors)))
+	n := r.FailedCalls()
+	fmt.Fprintf(w, "<details>\n<summary>%d AWS call%s failed; some results may be missing</summary>\n\n",
+		n, plural(n))
 	fmt.Fprintln(w, "| Action | Region | Kind | Affects |")
 	fmt.Fprintln(w, "| --- | --- | --- | --- |")
 	for _, e := range r.Errors {
