@@ -163,6 +163,10 @@ func newVersionCommand(version, commit string) *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if commit == "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "zombie-scanner %s\n", version)
+				return nil
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "zombie-scanner %s (%s)\n", version, commit)
 			return nil
 		},

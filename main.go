@@ -17,7 +17,7 @@ import (
 // injected at build time via -ldflags -X
 var (
 	version = "dev"
-	commit  = "none"
+	commit  = ""
 )
 
 func init() {
@@ -28,7 +28,7 @@ func init() {
 	if version == "dev" && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
 		version = strings.TrimPrefix(bi.Main.Version, "v")
 	}
-	if commit == "none" {
+	if commit == "" {
 		for _, s := range bi.Settings {
 			if s.Key == "vcs.revision" && len(s.Value) >= 7 {
 				commit = s.Value[:7]

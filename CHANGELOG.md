@@ -33,7 +33,8 @@ output's `schema_version` is what tells you whether scripts will keep working.
 - If the load balancer tags couldn't be read, `elb-idle` showed load
   balancers tagged `zombie-scanner:keep`. It now skips them and the report
   says which permission is missing.
-
+- `zombie-scanner version` printed `0.3.0 (none)` after `go install`. It now
+  prints `0.3.0`
 ## [0.3.0] - 2026-10-27
 
 **Your own prices, a run-time read-only guard, and three fixes.**
