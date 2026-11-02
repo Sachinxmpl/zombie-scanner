@@ -148,6 +148,7 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 		action  string
 		message string
 		regions []string
+		affects []string
 	}
 	groups := map[string]*group{}
 	order := []string{}
@@ -158,7 +159,7 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 		k := string(e.Kind) + "|" + action
 		g, ok := groups[k]
 		if !ok {
-			g = &group{kind: e.Kind, action: action, message: e.Message}
+			g = &group{kind: e.Kind, action: action, message: e.Message, affects: e.Affects}
 			groups[k] = g
 			order = append(order, k)
 		}
@@ -167,7 +168,8 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 		}
 	}
 
-	fmt.Fprintf(w, "\n! %d check%s skipped\n", len(r.Errors), plural(len(r.Errors)))
+	n := r.FailedCalls()
+	fmt.Fprintf(w, "\n! %d AWS call%s failed; some results may be missing\n", n, plural(n))
 
 	denied := false
 	for _, k := range order {
@@ -175,13 +177,13 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 		switch g.kind {
 		case zombie.KindAccessDenied:
 			denied = true
-			fmt.Fprintf(w, "  missing permission: %s%s\n", g.action, where(g.regions))
+			fmt.Fprintf(w, "  missing permission: %s%s%s\n", g.action, where(g.regions), affects(g.affects))
 		case zombie.KindThrottled:
-			fmt.Fprintf(w, "  throttled: %s%s\n", g.action, where(g.regions))
+			fmt.Fprintf(w, "  throttled: %s%s%s\n", g.action, where(g.regions), affects(g.affects))
 		case zombie.KindUnsupported:
-			fmt.Fprintf(w, "  not available%s: %s\n", where(g.regions), g.action)
+			fmt.Fprintf(w, "  not available%s: %s%s\n", where(g.regions), g.action, affects(g.affects))
 		default:
-			fmt.Fprintf(w, "  %s%s: %s\n", g.action, where(g.regions), g.message)
+			fmt.Fprintf(w, "  %s%s%s: %s\n", g.action, where(g.regions), affects(g.affects), g.message)
 		}
 	}
 
@@ -192,6 +194,13 @@ func Errors(w io.Writer, r zombie.Report, verbose bool) {
 	if !verbose {
 		fmt.Fprintln(w, "  run with -v for detail")
 	}
+}
+
+func affects(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	return " · affects " + strings.Join(names, ", ")
 }
 
 // an account-level failure has no region

@@ -18,6 +18,7 @@ type ScanError struct {
 	Operation string    `json:"operation"` // DescribeVolumes
 	Kind      ErrorKind `json:"kind"`
 	Message   string    `json:"message"`
+	Affects   []string  `json:"affects,omitempty"`
 }
 
 func (e ScanError) Error() string {

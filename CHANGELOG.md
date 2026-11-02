@@ -8,6 +8,22 @@ output's `schema_version` is what tells you whether scripts will keep working.
 
 ## [Unreleased]
 
+### Added
+
+- When an AWS call fails, the report now says which checks it affects, e.g.
+  `missing permission: elasticloadbalancing:DescribeTags (us-east-1) · affects elb-idle`.
+  The JSON gains an `affects` list on each error.
+
+### Changed
+
+- The report counted each failed AWS call once per region, so one missing
+  permission across 17 regions showed as "17 checks skipped". It now says
+  "1 AWS call failed; some results may be missing". The same wording is used
+  in the Markdown summary, the `--strict` error and the GitHub Action warning.
+- With `--only` or `--skip`, a failed AWS call that only unselected checks use
+  is no longer reported, and no longer fails `--strict`. Failures that stop a
+  whole account or region from being scanned are always reported.
+
 ### Fixed
 
 - The example workflow no longer shows a second, confusing error
