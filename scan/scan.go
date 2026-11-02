@@ -164,9 +164,15 @@ func (e *Engine) Run(ctx context.Context, o Options) (zombie.Report, error) {
 	_ = g.Wait()
 
 	report.Findings = findings
-	report.Errors = scanErrs
-	for i, se := range report.Errors {
-		report.Errors[i].Affects = detect.Using(se.Service+":"+se.Operation, o.Only, o.Skip)
+	for _, se := range scanErrs {
+		op := se.Service + ":" + se.Operation
+		se.Affects = detect.Using(op, o.Only, o.Skip)
+		// calls that only unselected checks use did not limit this scan
+		if len(se.Affects) == 0 && len(detect.Using(op, nil, nil)) > 0 {
+			e.log().Debug("error ignored, no selected check uses it", "op", op, "region", se.Region)
+			continue
+		}
+		report.Errors = append(report.Errors, se)
 	}
 	if len(filtered) > 0 {
 		report.Filtered = filtered
