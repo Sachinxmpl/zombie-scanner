@@ -1,0 +1,23 @@
+name: New check
+description: Suggest a kind of unused resource to look for.
+labels: [feature]
+body:
+  - type: input
+    id: resource
+    attributes:
+      label: AWS resource
+      placeholder: e.g. unused Lambda provisioned concurrency
+    validations:
+      required: true
+  - type: textarea
+    id: signal
+    attributes:
+      label: How can you tell it's unused?
+      description: The AWS call or CloudWatch metric that shows it, if you know.
+    validations:
+      required: true
+  - type: textarea
+    id: cost
+    attributes:
+      label: What it costs while unused
+      description: A rough monthly cost, or a link to the pricing page.

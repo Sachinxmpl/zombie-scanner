@@ -514,6 +514,8 @@ make verify     # the read-only checks
 make check      # everything CI runs
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
 ## Security
 
 It needs only read access, and talks to nothing but AWS. No tracking. To report a

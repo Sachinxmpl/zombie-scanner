@@ -1,0 +1,50 @@
+name: False positive
+description: Something was flagged as unused, but it is in use.
+labels: [false-positive]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful report you can send. Thank you.
+        Remove account IDs, ARNs and names you don't want public.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `zombie-scanner version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: check
+    attributes:
+      label: Which check flagged it?
+      options:
+        - ebs-unattached
+        - eip-unassociated
+        - instance-stopped
+        - nat-idle
+        - elb-idle
+        - snapshot-aged
+        - rds-stopped
+        - rds-idle
+        - efs-unused
+        - kms-key-disabled
+        - rds-snapshot-aged
+        - ecr-untagged
+    validations:
+      required: true
+  - type: textarea
+    id: finding
+    attributes:
+      label: The finding
+      description: The line from the table, or the finding from `--output json`.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it's actually in use
+      description: What uses it, and how you could tell. This is how the check gets fixed.
+    validations:
+      required: true

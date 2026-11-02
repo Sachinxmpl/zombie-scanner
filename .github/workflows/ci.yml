@@ -73,6 +73,8 @@ jobs:
           bash -n /tmp/steps.sh
       - name: the example workflow is valid YAML
         run: python3 -c "import yaml; yaml.safe_load(open('docs/examples/scheduled-scan.yml'))"
+      - name: issue forms are valid YAML
+        run: for f in .github/ISSUE_TEMPLATE/*.yml; do python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$f"; done
 
   iam-policy:
     name: iam-policy
