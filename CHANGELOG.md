@@ -14,6 +14,9 @@ output's `schema_version` is what tells you whether scripts will keep working.
   (`Input required and not supplied: path`) when the AWS login fails, and uses
   current versions of its actions. The README now shows how to set up the AWS
   role it logs in with.
+- If the load balancer tags couldn't be read, `elb-idle` showed load
+  balancers tagged `zombie-scanner:keep`. It now skips them and the report
+  says which permission is missing.
 
 ## [0.3.0] - 2026-10-27
 

@@ -34,6 +34,11 @@ func (elbIdle) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding {
 	out := []zombie.Finding{}
 	window := time.Duration(cfg.IdleWindowDays) * 24 * time.Hour
 
+	// if DescribeTags failed, return no findings, show user that tags could not be read
+	if inv.Missing("elasticloadbalancing:DescribeTags") {
+		return out
+	}
+
 	for _, lb := range inv.LoadBalancers {
 		// RequestCount does not exist for network load balancers
 		if lb.Type != "application" {
