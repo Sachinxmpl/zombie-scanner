@@ -24,6 +24,7 @@ output's `schema_version` is what tells you whether scripts will keep working.
   is no longer reported, and no longer fails `--strict`. Failures that stop a
   whole account or region from being scanned are always reported.
 - Building from source now needs Go 1.26 or later (a dependency requires it).
+- Prices are updated to AWS list prices of November 2026.
 
 ### Fixed
 
