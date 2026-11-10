@@ -35,6 +35,8 @@ type KMSKey struct {
 	Manager     string // "AWS", "CUSTOMER"
 	State       string // "Enabled", "Disabled"
 	Description string
+	Tags        map[string]string
+	TagsUnknown bool // true if ListResourceTags failed
 	CreatedAt   time.Time
 }
 

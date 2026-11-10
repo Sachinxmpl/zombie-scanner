@@ -60,6 +60,7 @@ type EFSAPI interface {
 type KMSAPI interface {
 	ListKeys(ctx context.Context, in *kms.ListKeysInput, opts ...func(*kms.Options)) (*kms.ListKeysOutput, error)
 	DescribeKey(ctx context.Context, in *kms.DescribeKeyInput, opts ...func(*kms.Options)) (*kms.DescribeKeyOutput, error)
+	ListResourceTags(ctx context.Context, in *kms.ListResourceTagsInput, opts ...func(*kms.Options)) (*kms.ListResourceTagsOutput, error)
 }
 
 type ECRAPI interface {
