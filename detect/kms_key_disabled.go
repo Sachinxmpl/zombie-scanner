@@ -24,6 +24,7 @@ func (kmsKeyDisabled) Needs() []string {
 	return []string{
 		"kms:ListKeys",
 		"kms:DescribeKey",
+		"kms:ListResourceTags",
 	}
 }
 
@@ -31,6 +32,10 @@ func (kmsKeyDisabled) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding 
 	out := []zombie.Finding{}
 
 	for _, k := range inv.KMSKeys {
+		// tags that could not be read my include the keep tags
+		if k.TagsUnknown {
+			continue
+		}
 		// AWS-managed keys are free
 		if k.Manager != "CUSTOMER" {
 			continue
@@ -56,6 +61,7 @@ func (kmsKeyDisabled) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding 
 			Reason: fmt.Sprintf("Disabled customer-managed key, created %d days ago (%s)",
 				inv.AgeDays(k.CreatedAt), what),
 			CreatedAt: &created,
+			Tags:      k.Tags,
 		}
 		f.Meta("key_state", k.State)
 		f.Meta("key_manager", k.Manager)

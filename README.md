@@ -265,9 +265,9 @@ ECR has recorded a pull and that pull is old. A missing pull time is not taken
 as "never pulled", because ECR only records pulls since it started tracking
 them. The price is an upper bound: images share layers, which are stored once.
 
-**`kms-key-disabled`** and **`ecr-untagged`** need one extra call per key or
-repository. If a key or repository policy blocks that call, the rest are still
-checked and the report says how many could not be read.
+**`kms-key-disabled`** needs up to two extra calls per key (its details, and its
+tags if you created it), and **`ecr-untagged`** one per repository. If a key or
+repository policy blocks a call, the rest are still checked. Report mentions how many could not be read.
 
 ## Confidence levels
 

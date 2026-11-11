@@ -213,6 +213,7 @@ type KMS struct {
 	ListKeysFunc    func(context.Context, *kms.ListKeysInput) (*kms.ListKeysOutput, error)
 	DescribeKeyFunc func(context.Context, *kms.DescribeKeyInput) (*kms.DescribeKeyOutput, error)
 	recorder
+	ListResourceTagsFunc func(context.Context, *kms.ListResourceTagsInput) (*kms.ListResourceTagsOutput, error)
 }
 
 func (f *KMS) ListKeys(ctx context.Context, in *kms.ListKeysInput,
@@ -231,6 +232,15 @@ func (f *KMS) DescribeKey(ctx context.Context, in *kms.DescribeKeyInput,
 		return f.DescribeKeyFunc(ctx, in)
 	}
 	return &kms.DescribeKeyOutput{}, nil
+}
+
+func (f *KMS) ListResourceTags(ctx context.Context, in *kms.ListResourceTagsInput,
+	_ ...func(*kms.Options)) (*kms.ListResourceTagsOutput, error) {
+	f.record("ListResourceTags")
+	if f.ListResourceTagsFunc != nil {
+		return f.ListResourceTagsFunc(ctx, in)
+	}
+	return &kms.ListResourceTagsOutput{}, nil
 }
 
 // ECR is a fake awsapi.ECRAPI.

@@ -19,6 +19,7 @@
         "elasticloadbalancing:DescribeTags",
         "kms:DescribeKey",
         "kms:ListKeys",
+        "kms:ListResourceTags",
         "rds:DescribeDBInstances",
         "rds:DescribeDBSnapshots",
         "sts:GetCallerIdentity"
