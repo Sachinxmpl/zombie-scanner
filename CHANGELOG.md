@@ -37,6 +37,18 @@ output's `schema_version` is what tells you whether scripts will keep working.
   says which permission is missing.
 - `zombie-scanner version` printed `0.3.0 (none)` after `go install`. It now
   prints `0.3.0`.
+  - The `zombie-scanner:keep` tag had no effect on `kms-key-disabled`, because
+  key tags were never read. They are now. A key whose tags can't be read is
+  not shown, report mentions that.
+
+### Permissions
+New read-only permissions. If you wrote your own IAM policy, add them, or
+regenerate it with `zombie-scanner iam-policy`. Without them the checks that
+need them are skipped with a note, and the others still run.
+
+```
+kms:ListResourceTags
+```
 
 ## [0.3.0] - 2026-10-27
 
