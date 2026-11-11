@@ -444,6 +444,9 @@ A copy is in [docs/iam-policy.json](docs/iam-policy.json). Every action in it is
 a `Describe`, `Get` or `List`. AWS's `ReadOnlyAccess` policy also works, but
 allows far more.
 
+A policy made with `--only` is enough for `zombie-scanner --only` with the same
+checks.
+
 ## Read-only, and checked
 
 There is no `--delete` flag and there won't be. A wrong report is annoying; a

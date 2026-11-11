@@ -340,21 +340,26 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 	inv.Failed = map[string]bool{}
 
 	for _, s := range steps {
+		op := s.service + ":" + s.operation
+		if len(detect.Using(op, o.Only, o.Skip)) == 0 && len(detect.Using(op, nil, nil)) > 0 {
+			e.log().Debug("step skipped, no selected check uses it", "op", op, "region", region)
+			continue
+		}
 		t0 := time.Now()
 		if err := s.run(ctx, &inv); err != nil {
 			// the listing worked, so what was read stays usable; only report the gap
 			var partial *collect.Partial
 			if errors.As(err, &partial) {
-				e.log().Debug("step partial", "op", s.service+":"+s.operation, "region", region, "err", err)
+				e.log().Debug("step partial", "op", op, "region", region, "err", err)
 				errs = append(errs, newScanError(account, region, partial.Service, partial.Operation, err))
 				continue
 			}
-			e.log().Debug("step failed", "op", s.service+":"+s.operation, "region", region, "err", err)
-			inv.Failed[s.service+":"+s.operation] = true
+			e.log().Debug("step failed", "op", op, "region", region, "err", err)
+			inv.Failed[op] = true
 			errs = append(errs, newScanError(account, region, s.service, s.operation, err))
 			continue // degrade, never abort
 		}
-		e.log().Debug("step ok", "op", s.service+":"+s.operation, "took", time.Since(t0))
+		e.log().Debug("step ok", "op", op, "took", time.Since(t0))
 	}
 
 	findings := e.prices().Apply(detect.Run(inv, e.Cfg, o.Only, o.Skip), region)
