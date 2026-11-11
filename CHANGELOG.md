@@ -13,6 +13,10 @@ output's `schema_version` is what tells you whether scripts will keep working.
 - When an AWS call fails, the report now says which checks it affects, e.g.
   `missing permission: elasticloadbalancing:DescribeTags (us-east-1) · affects elb-idle`.
   The JSON gains an `affects` list on each error.
+- `eip-unassociated` now also finds Elastic IPs on a network interface that is
+  attached to nothing (MEDIUM, since a spare failover interface looks the
+  same). Addresses on instances, NAT gateways and load balancers are not
+  affected. ([#45](https://github.com/Sachinxmpl/zombie-scanner/issues/45))
 
 ### Changed
 
@@ -50,6 +54,7 @@ regenerate it with `zombie-scanner iam-policy`. Without them the checks that
 need them are skipped with a note, and the others still run.
 
 ```
+ec2:DescribeNetworkInterfaces
 kms:ListResourceTags
 ecr:ListTagsForResource
 ```
