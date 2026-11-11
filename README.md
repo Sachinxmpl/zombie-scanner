@@ -266,8 +266,9 @@ as "never pulled", because ECR only records pulls since it started tracking
 them. The price is an upper bound: images share layers, which are stored once.
 
 **`kms-key-disabled`** needs up to two extra calls per key (its details, and its
-tags if you created it), and **`ecr-untagged`** one per repository. If a key or
-repository policy blocks a call, the rest are still checked. Report mentions how many could not be read.
+tags if you created it), and **`ecr-untagged`** two per repository (its images
+and its tags). If a key or repository policy blocks a call, the rest are still
+checked. Report mentions how many could not be read.
 
 ## Confidence levels
 
