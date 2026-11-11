@@ -17,12 +17,13 @@ func (eipUnassociated) Name() string {
 }
 
 func (eipUnassociated) Describe() string {
-	return "Elastic IPs attached to nothing - AWS bills every public IPv4 address it allocates"
+	return "Elastic IPs that reach nothing: unattached, or on a detached network interface - AWS bills every public IPv4 address"
 }
 
 func (eipUnassociated) Needs() []string {
 	return []string{
 		"ec2:DescribeAddresses",
+		"ec2:DescribeNetworkInterfaces",
 	}
 }
 
@@ -30,12 +31,22 @@ func (eipUnassociated) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding
 	out := []zombie.Finding{}
 
 	for _, a := range inv.Addresses {
-		// AWS sets AssociationId whenever an address is attached to an instance or a network interface.
-		if a.AssociationID != "" {
+		var conf zombie.Confidence
+		var reason string
+		switch {
+		// AWS sets AssociationId whenever an address is attached to an instance or a network interface
+		case a.AssociationID == "":
+			conf = zombie.High
+			reason = fmt.Sprintf("Public IP %s is allocated but associated with nothing", a.PublicIP)
+		// a spare interface kept for failover looks the same. -> medium confidence
+		case a.InterfaceDetached:
+			conf = zombie.Medium
+			reason = fmt.Sprintf("Public IP %s is on network interface %s, which is attached to nothing",
+				a.PublicIP, a.NetworkInterfaceID)
+		default:
 			continue
 		}
 
-		// DescribeAddresses carries no allocation timestamp, so cfg.MinAgeDays cannot be applied here.
 		id := a.AllocationID
 		if id == "" {
 			id = a.PublicIP // pre-VPC addresses have no allocation id
@@ -44,12 +55,14 @@ func (eipUnassociated) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding
 		f := zombie.Finding{
 			ResourceID:   id,
 			ResourceType: "elastic-ip",
-			Confidence:   zombie.High,
-			Reason: fmt.Sprintf("Public IP %s is allocated but associated with nothing",
-				a.PublicIP),
-			Tags: a.Tags,
+			Confidence:   conf,
+			Reason:       reason,
+			Tags:         a.Tags,
 		}
 		f.Meta("public_ip", a.PublicIP)
+		if a.NetworkInterfaceID != "" {
+			f.Meta("network_interface", a.NetworkInterfaceID)
+		}
 
 		out = append(out, f)
 	}

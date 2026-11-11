@@ -210,7 +210,7 @@ than one account, the report adds an Account column.
 | Detector             | Confidence | What it looks for                              | Cost basis              |
 | -------------------- | ---------- | ---------------------------------------------- | ----------------------- |
 | `ebs-unattached`     | HIGH       | Volumes in state `available`                   | size × per-GiB rate     |
-| `eip-unassociated`   | HIGH       | Elastic IPs attached to nothing                | flat monthly            |
+| `eip-unassociated`   | HIGH–MEDIUM | Elastic IPs attached to nothing, or to a detached network interface | flat monthly |
 | `efs-unused`         | HIGH       | File systems with no mount targets             | size × per-tier rate    |
 | `kms-key-disabled`   | HIGH       | Disabled customer-managed encryption keys      | flat $1/key             |
 | `rds-stopped`        | HIGH       | Stopped databases still paying for storage     | allocated GiB × rate    |
@@ -264,6 +264,10 @@ pushes a new image under an old tag. It is LOW by default and MEDIUM only when
 ECR has recorded a pull and that pull is old. A missing pull time is not taken
 as "never pulled", because ECR only records pulls since it started tracking
 them. The price is an upper bound: images share layers, which are stored once.
+
+**`eip-unassociated`** is HIGH for an address attached to nothing. An address
+on a network interface that is itself attached to nothing is MEDIUM, because a
+spare interface kept for failover looks exactly the same.
 
 **`kms-key-disabled`** needs up to two extra calls per key (its details, and its
 tags if you created it), and **`ecr-untagged`** two per repository (its images

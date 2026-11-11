@@ -44,6 +44,43 @@ func Addresses(ctx context.Context, api awsapi.EC2API) ([]zombie.Address, error)
 	return out, nil
 }
 
+// Marks addresses whose network interface is attached to nothing.
+func DetachedInterfaces(ctx context.Context, api awsapi.EC2API, addrs []zombie.Address) error {
+	byENI := map[string][]int{}
+	ids := []string{}
+	for i, a := range addrs {
+		if a.AssociationID == "" || a.InstanceID != "" || a.NetworkInterfaceID == "" {
+			continue
+		}
+		if _, seen := byENI[a.NetworkInterfaceID]; !seen {
+			ids = append(ids, a.NetworkInterfaceID)
+		}
+		byENI[a.NetworkInterfaceID] = append(byENI[a.NetworkInterfaceID], i)
+	}
+
+	// EC2 accepts at most 200 values in one filter
+	for start := 0; start < len(ids); start += 200 {
+		p := ec2.NewDescribeNetworkInterfacesPaginator(api, &ec2.DescribeNetworkInterfacesInput{
+			Filters: []ec2types.Filter{
+				{Name: aws.String("network-interface-id"), Values: ids[start:min(start+200, len(ids))]},
+				{Name: aws.String("status"), Values: []string{"available"}},
+			},
+		})
+		for p.HasMorePages() {
+			page, err := p.NextPage(ctx)
+			if err != nil {
+				return fmt.Errorf("ec2:DescribeNetworkInterfaces: %w", err)
+			}
+			for _, n := range page.NetworkInterfaces {
+				for _, i := range byENI[aws.ToString(n.NetworkInterfaceId)] {
+					addrs[i].InterfaceDetached = true
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // Returns every EBS snapshot this account owns in the region
 func Snapshots(ctx context.Context, api awsapi.EC2API) ([]zombie.Snapshot, error) {
 	out := []zombie.Snapshot{}

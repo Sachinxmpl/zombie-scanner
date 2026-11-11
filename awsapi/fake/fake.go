@@ -38,13 +38,14 @@ func (r *recorder) Calls() []string {
 
 // EC2 is a fake awsapi.EC2API.
 type EC2 struct {
-	DescribeInstancesFunc   func(context.Context, *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
-	DescribeVolumesFunc     func(context.Context, *ec2.DescribeVolumesInput) (*ec2.DescribeVolumesOutput, error)
-	DescribeAddressesFunc   func(context.Context, *ec2.DescribeAddressesInput) (*ec2.DescribeAddressesOutput, error)
-	DescribeRegionsFunc     func(context.Context, *ec2.DescribeRegionsInput) (*ec2.DescribeRegionsOutput, error)
-	DescribeSnapshotsFunc   func(context.Context, *ec2.DescribeSnapshotsInput) (*ec2.DescribeSnapshotsOutput, error)
-	DescribeImagesFunc      func(context.Context, *ec2.DescribeImagesInput) (*ec2.DescribeImagesOutput, error)
-	DescribeNatGatewaysFunc func(context.Context, *ec2.DescribeNatGatewaysInput) (*ec2.DescribeNatGatewaysOutput, error)
+	DescribeInstancesFunc         func(context.Context, *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
+	DescribeVolumesFunc           func(context.Context, *ec2.DescribeVolumesInput) (*ec2.DescribeVolumesOutput, error)
+	DescribeAddressesFunc         func(context.Context, *ec2.DescribeAddressesInput) (*ec2.DescribeAddressesOutput, error)
+	DescribeRegionsFunc           func(context.Context, *ec2.DescribeRegionsInput) (*ec2.DescribeRegionsOutput, error)
+	DescribeSnapshotsFunc         func(context.Context, *ec2.DescribeSnapshotsInput) (*ec2.DescribeSnapshotsOutput, error)
+	DescribeImagesFunc            func(context.Context, *ec2.DescribeImagesInput) (*ec2.DescribeImagesOutput, error)
+	DescribeNatGatewaysFunc       func(context.Context, *ec2.DescribeNatGatewaysInput) (*ec2.DescribeNatGatewaysOutput, error)
+	DescribeNetworkInterfacesFunc func(context.Context, *ec2.DescribeNetworkInterfacesInput) (*ec2.DescribeNetworkInterfacesOutput, error)
 
 	// Calls records operation names in order, so a test can assert that
 	// pagination really made three calls rather than reading one page.
@@ -112,6 +113,15 @@ func (f *EC2) DescribeNatGateways(ctx context.Context, in *ec2.DescribeNatGatewa
 		return f.DescribeNatGatewaysFunc(ctx, in)
 	}
 	return &ec2.DescribeNatGatewaysOutput{}, nil
+}
+
+func (f *EC2) DescribeNetworkInterfaces(ctx context.Context, in *ec2.DescribeNetworkInterfacesInput,
+	_ ...func(*ec2.Options)) (*ec2.DescribeNetworkInterfacesOutput, error) {
+	f.record("DescribeNetworkInterfaces")
+	if f.DescribeNetworkInterfacesFunc != nil {
+		return f.DescribeNetworkInterfacesFunc(ctx, in)
+	}
+	return &ec2.DescribeNetworkInterfacesOutput{}, nil
 }
 
 // STS is a fake awsapi.STSAPI.
