@@ -29,6 +29,8 @@ output's `schema_version` is what tells you whether scripts will keep working.
   whole account or region from being scanned are always reported.
 - Building from source now needs Go 1.26 or later (a dependency requires it).
 - Prices are updated to AWS list prices of November 2026.
+- With `--only` or `--skip`, the tool no longer calls AWS for checks you didn't
+  choose. Scans are faster, and a policy from `iam-policy --only` is enough.
 
 ### Fixed
 
