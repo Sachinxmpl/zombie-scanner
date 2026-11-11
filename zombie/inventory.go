@@ -95,11 +95,13 @@ type Volume struct {
 }
 
 type Address struct {
-	AllocationID  string
-	PublicIP      string
-	AssociationID string // empty -> unassociated
-	InstanceID    string // empty if not on an instance
-	Tags          map[string]string
+	AllocationID       string
+	PublicIP           string
+	AssociationID      string // empty -> unassociated
+	InstanceID         string // empty if not on an instance
+	Tags               map[string]string
+	NetworkInterfaceID string
+	InterfaceDetached  bool // on network interface that is attached to nothing
 }
 
 type Snapshot struct {

@@ -235,6 +235,9 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 			inv.Addresses = a
 			return err
 		}},
+		{"ec2", "DescribeNetworkInterfaces", func(ctx context.Context, inv *zombie.Inventory) error {
+			return collect.DetachedInterfaces(ctx, clients.EC2, inv.Addresses)
+		}},
 		{"ec2", "DescribeSnapshots", func(ctx context.Context, inv *zombie.Inventory) error {
 			s, err := collect.Snapshots(ctx, clients.EC2)
 			inv.Snapshots = s
