@@ -248,6 +248,7 @@ type ECR struct {
 	DescribeRepositoriesFunc func(context.Context, *ecr.DescribeRepositoriesInput) (*ecr.DescribeRepositoriesOutput, error)
 	DescribeImagesFunc       func(context.Context, *ecr.DescribeImagesInput) (*ecr.DescribeImagesOutput, error)
 	recorder
+	ListTagsForResourceFunc func(context.Context, *ecr.ListTagsForResourceInput) (*ecr.ListTagsForResourceOutput, error)
 }
 
 func (f *ECR) DescribeRepositories(ctx context.Context, in *ecr.DescribeRepositoriesInput,
@@ -266,6 +267,15 @@ func (f *ECR) DescribeImages(ctx context.Context, in *ecr.DescribeImagesInput,
 		return f.DescribeImagesFunc(ctx, in)
 	}
 	return &ecr.DescribeImagesOutput{}, nil
+}
+
+func (f *ECR) ListTagsForResource(ctx context.Context, in *ecr.ListTagsForResourceInput,
+	_ ...func(*ecr.Options)) (*ecr.ListTagsForResourceOutput, error) {
+	f.record("ListTagsForResource")
+	if f.ListTagsForResourceFunc != nil {
+		return f.ListTagsForResourceFunc(ctx, in)
+	}
+	return &ecr.ListTagsForResourceOutput{}, nil
 }
 
 // Factory is a fake awsapi.Factory.

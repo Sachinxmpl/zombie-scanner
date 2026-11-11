@@ -273,6 +273,9 @@ func (e *Engine) scanOneRegion(ctx context.Context, aws awsapi.Factory, region, 
 			inv.ECRImages = i
 			return err
 		}},
+		{"ecr", "ListTagsForResource", func(ctx context.Context, inv *zombie.Inventory) error {
+			return collect.ECRRepoTags(ctx, clients.ECR, inv.ECRImages)
+		}},
 		{"elasticfilesystem", "DescribeFileSystems", func(ctx context.Context, inv *zombie.Inventory) error {
 			fs, err := collect.FileSystems(ctx, clients.EFS)
 			inv.FileSystems = fs
