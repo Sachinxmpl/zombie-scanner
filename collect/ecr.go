@@ -59,3 +59,46 @@ func ECRImages(ctx context.Context, api awsapi.ECRAPI) ([]zombie.ECRImage, error
 	}
 	return out, nil
 }
+
+// Fills in RepoTags on every image. One call per repository.
+func ECRRepoTags(ctx context.Context, api awsapi.ECRAPI, images []zombie.ECRImage) error {
+	type result struct {
+		tags map[string]string
+		err  error
+	}
+	byRepo := map[string]result{}
+	skipped := 0
+	var lastErr error
+
+	for i := range images {
+		arn := images[i].RepoARN
+		r, seen := byRepo[arn]
+		if !seen {
+			resp, err := api.ListTagsForResource(ctx, &ecr.ListTagsForResourceInput{ResourceArn: &arn})
+			if err != nil {
+				r.err = err
+				skipped++
+				lastErr = err
+			} else {
+				r.tags = toECRTags(resp.Tags)
+			}
+			byRepo[arn] = r
+		}
+		if r.err != nil {
+			images[i].RepoTagsUnknown = true
+			continue
+		}
+		images[i].RepoTags = r.tags
+	}
+
+	if skipped == 0 {
+		return nil
+	}
+	// every repository failed: most likely IAM, so report it as the call failing
+	if skipped == len(byRepo) {
+		return fmt.Errorf("ecr:ListTagsForResource: %w", lastErr)
+	}
+	return &Partial{Service: "ecr", Operation: "ListTagsForResource",
+		Skipped: skipped, Total: len(byRepo), What: "repository tags",
+		Hint: "a repository policy can deny this role even when IAM allows it"}
+}

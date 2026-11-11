@@ -286,3 +286,16 @@ func toECRImage(d ecrtypes.ImageDetail, repo, repoARN string) zombie.ECRImage {
 	}
 	return out
 }
+
+func toECRTags(tags []ecrtypes.Tag) map[string]string {
+	if len(tags) == 0 {
+		return nil
+	}
+	m := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if k := aws.ToString(t.Key); k != "" {
+			m[k] = aws.ToString(t.Value)
+		}
+	}
+	return m
+}

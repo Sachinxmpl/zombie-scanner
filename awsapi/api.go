@@ -66,6 +66,7 @@ type KMSAPI interface {
 type ECRAPI interface {
 	DescribeRepositories(ctx context.Context, in *ecr.DescribeRepositoriesInput, opts ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error)
 	DescribeImages(ctx context.Context, in *ecr.DescribeImagesInput, opts ...func(*ecr.Options)) (*ecr.DescribeImagesOutput, error)
+	ListTagsForResource(ctx context.Context, in *ecr.ListTagsForResourceInput, opts ...func(*ecr.Options)) (*ecr.ListTagsForResourceOutput, error)
 }
 
 type Clients struct {

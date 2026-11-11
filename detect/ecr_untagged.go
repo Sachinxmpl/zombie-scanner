@@ -25,6 +25,7 @@ func (ecrUntagged) Needs() []string {
 	return []string{
 		"ecr:DescribeRepositories",
 		"ecr:DescribeImages",
+		"ecr:ListTagsForResource",
 	}
 }
 
@@ -33,6 +34,9 @@ func (ecrUntagged) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding {
 
 	for _, img := range inv.ECRImages {
 		if len(img.Tags) > 0 || img.SizeBytes <= 0 {
+			continue
+		}
+		if img.RepoTagsUnknown {
 			continue
 		}
 
@@ -60,6 +64,7 @@ func (ecrUntagged) Detect(inv zombie.Inventory, cfg Config) []zombie.Finding {
 			Reason: fmt.Sprintf("Untagged in %s, pushed %d days ago (%s, %s)",
 				img.Repository, age, humanBytes(img.SizeBytes), pulled),
 			CreatedAt: &pushed,
+			Tags:      img.RepoTags,
 		}
 		f.Meta("repository", img.Repository)
 		f.Meta("digest", img.Digest)

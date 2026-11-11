@@ -41,13 +41,15 @@ type KMSKey struct {
 }
 
 type ECRImage struct {
-	Digest     string
-	Repository string
-	RepoARN    string
-	Tags       []string
-	SizeBytes  int64
-	PushedAt   time.Time
-	LastPulled *time.Time
+	Digest          string
+	Repository      string
+	RepoARN         string
+	Tags            []string
+	SizeBytes       int64
+	PushedAt        time.Time
+	LastPulled      *time.Time
+	RepoTags        map[string]string
+	RepoTagsUnknown bool // true if ListTagsForResource failed
 }
 
 type DBInstance struct {
