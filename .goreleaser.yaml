@@ -54,6 +54,24 @@ nfpms:
       - src: docs/iam-policy.json
         dst: /usr/share/zombie-scanner/iam-policy.json
 
+homebrew_casks:
+  - name: zombie-scanner
+    repository:
+      owner: Sachinxmpl
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    homepage: https://github.com/Sachinxmpl/zombie-scanner
+    description: Finds AWS resources that are dead but still billing
+    license: MIT
+    commit_msg_template: "zombie-scanner {{ .Tag }}"
+    hooks:
+      post:
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/{{ .ProjectName }}"]
+          end
+
 sboms:
   - artifacts: archive
 
