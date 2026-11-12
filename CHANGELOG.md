@@ -17,6 +17,8 @@ output's `schema_version` is what tells you whether scripts will keep working.
   attached to nothing (MEDIUM, since a spare failover interface looks the
   same). Addresses on instances, NAT gateways and load balancers are not
   affected. ([#45](https://github.com/Sachinxmpl/zombie-scanner/issues/45))
+- Install with Homebrew: `brew install --cask sachinxmpl/tap/zombie-scanner`.
+  ([#66](https://github.com/Sachinxmpl/zombie-scanner/issues/66))
 
 ### Changed
 

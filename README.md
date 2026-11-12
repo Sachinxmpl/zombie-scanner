@@ -46,6 +46,11 @@ None of them show up in a cost anomaly report, because nothing anomalous is
 happening. They just bill, every hour, indefinitely.
 
 ## Install
+**Homebrew** (macOS)
+
+```bash
+brew install --cask sachinxmpl/tap/zombie-scanner
+```
 
 **Go**
 
