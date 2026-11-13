@@ -54,7 +54,7 @@ a signed record of how it was built:
 ```bash
 sha256sum -c checksums.txt --ignore-missing
 
-gh attestation verify zombie-scanner_0.3.0_linux_amd64.tar.gz \
+gh attestation verify zombie-scanner_0.4.0_linux_amd64.tar.gz \
   --repo Sachinxmpl/zombie-scanner
 ```
 
@@ -67,5 +67,5 @@ different workflow, the file did not come from this project.
 Before 1.0, only the latest release gets security fixes. Don't use `v0.1.0`; it
 was withdrawn.
 
-Releases are built with the Go version in `go.mod`, and CI runs `govulncheck` on
+Releases are built with the latest stable Go. CI runs `govulncheck` on
 every pull request to look for known problems in Go and every dependency.
